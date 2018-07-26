@@ -1,0 +1,152 @@
+---
+swagger: "2.0"
+info:
+  description: ""
+  version: "1.0.0"
+  title: ""
+host: "localhost:8080"
+basePath: "/v1"
+schemes:
+- "http"
+paths:
+  /semaphore/{semaKey}:
+    get:
+      summary: "Query semaphore status"
+      operationId: "querySema"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "semaKey"
+        in: "path"
+        description: "Semaphore identifier"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Semaphore"
+        400:
+          description: "Invalid ID supplied"
+      x-swagger-router-controller: "Default"
+    put:
+      summary: "Acquire semaphore"
+      operationId: "lockSema"
+      parameters:
+      - name: "semaKey"
+        in: "path"
+        description: "Semaphore ID"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      - in: "body"
+        name: "semaphore"
+        required: false
+        schema:
+          $ref: "#/definitions/semaphore"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Semaphore"
+        409:
+          description: "lock in use"
+          schema:
+            $ref: "#/definitions/Semaphore"
+      x-swagger-router-controller: "Default"
+  /semaphore/{semaKey}/{semaHandle}:
+    delete:
+      summary: "Unlock"
+      description: ""
+      operationId: "unlockSema"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "semaKey"
+        in: "path"
+        description: "Semaphore ID"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      - name: "semaHandle"
+        in: "path"
+        description: "Semaphore id to delete"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Semaphore"
+      x-swagger-router-controller: "Default"
+    patch:
+      summary: "Update ttl"
+      operationId: "extendSema"
+      parameters:
+      - name: "semaKey"
+        in: "path"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      - name: "semaHandle"
+        in: "path"
+        description: "Semaphore id to delete"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      - in: "body"
+        name: "semaphore"
+        required: false
+        schema:
+          $ref: "#/definitions/semaphore_1"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Semaphore"
+        400:
+          description: "handle mismach"
+        410:
+          description: "Wrong / expired handle"
+      x-swagger-router-controller: "Default"
+definitions:
+  Semaphore:
+    type: "object"
+    required:
+    - "expiry"
+    - "id"
+    - "locked"
+    properties:
+      id:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      locked:
+        type: "boolean"
+        default: false
+      expiry:
+        type: "integer"
+        format: "int64"
+    example:
+      handle: "handle"
+      id: "id"
+      expiry: 0
+      locked: false
+  semaphore:
+    type: "object"
+    properties:
+      ttl:
+        type: "integer"
+        minimum: 1
+        maximum: 3600
+  semaphore_1:
+    type: "object"
+    properties:
+      ttl:
+        type: "integer"
+        minimum: 1
+        maximum: 3600
