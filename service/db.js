@@ -24,14 +24,20 @@ exports.creaTable=function(tableName){
             ReadCapacityUnits: 10, WriteCapacityUnits: 10
         }
     };
+    let tb=tableName;
     return new Promise((resolve,reject)=>{
         dynamodb.createTable(params, function(err, data) {
             if (err) {
-                console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
-                reject(err);
+                if(err['statusCode']==400 && err['code']=='ResourceInUseException'){
+                    console.log('#200,table exist,skip...');
+                    resolve({'statusCode':200,'msg':'table exist.'});
+                }else{
+                    console.error("!! CreateTable Error:", err["code"]);
+                    resolve({'statusCode':400,'msg':"invaild request"});
+                }
             } else {
-                console.log("Created table");
-                resolve(data);
+                console.log("#Table Created:",tb);
+                resolve({'statusCode':200,'msg':data});
             }
         });
         
@@ -42,45 +48,62 @@ exports.deleTable=function(tableName){
     var params = {
         TableName : tableName
     };
+    let tb=tableName;
     return new Promise((resolve,reject)=>{
         dynamodb.deleteTable(params, function(err, data) {
             if (err) {
-                console.error("Unable to delete table. Error JSON:", JSON.stringify(err, null, 2));
-                reject(err);
+                if(err['statusCode']==400 && err['code']=='ResourceNotFoundException'){
+                    console.log('#200,table NOT exist,skip...');
+                    resolve({'statusCode':200,'msg':'table NOT exist.'});
+                }else{
+                    console.error("!! DeleteTable Error:", err["code"]);
+                    resolve({'statusCode':400,'msg':"invaild request"});
+                }
             } else {
-                console.log("Deleted table.");
-                resolve(data);
+                console.log("#Table Deleted:",tb);
+                resolve({'statusCode':200,'msg':data});
             }
         });
     });
 }
 
-exports.crea=function(tb,keyVal,key2Val){
+exports.creaLoc=function(tb,keyVal,key2Val){
     let params={
         TableName: tb,
         Item:{
             'id': keyVal,
             'data': key2Val,
         },
-        ConditionExpression:"attribute_not_exists(#da)",
+        ConditionExpression:"attribute_not_exists(#da) OR #da.#ex<:tm",
         ExpressionAttributeNames:{
             "#da":'data',
+            "#ex":'expiry',
+        },
+        ExpressionAttributeValues: {
+            ":tm": Date.now(),
         }
     };
+    //condition > without key 'data'(conflict)
     return new Promise((resolve,reject)=>{
         docClient.put(params, function(err, data) {
             if (err) {
-                console.error("Unable to add item. Error JSON:", JSON.stringify(err, null, 2));
-                reject(err);
+                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+                    console.log('#409,lock conflict or in use.');
+                    resolve({'statusCode':409,'msg':'lock conflict/in use or invaild request'});
+                }else{
+                    console.error("!! CreateLoc Error:", err["code"]);
+                    resolve({'statusCode':400,'msg':"invaild request"});
+                }
             } else {
-                console.log("Added item:", data);
-                resolve(key2Val);
+                //dynamo callback data return {}(empty)
+                console.log("#Create Lock succeed.");
+                resolve({'statusCode':200,'msg':key2Val});
             }
         });
     });
 }
 
-exports.dele=function(tb,idVal,checkHandle){
+exports.deleLoc=function(tb,idVal,checkHandle){
     let params={
         TableName: tb,
         Key:{ 'id': idVal },
@@ -95,20 +118,27 @@ exports.dele=function(tb,idVal,checkHandle){
             ":h": checkHandle,
         }
     };
+    //condition > key and handle correctspond
     return new Promise((resolve,reject)=>{
         docClient.delete(params, function(err, data) {
             if (err) {
-                console.error("Unable to delete item. Error JSON:", JSON.stringify(err, null, 2));
-                reject(err);
+                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+                    console.log('#400,lock not exist or invaild request');
+                    resolve({'statusCode':400,'msg':'error or invaild request'});
+                }else{
+                    console.error("!! DeleteLoc Error:", err["code"]);
+                    resolve({'statusCode':400,'msg':"invaild request"});
+                }
             } else {
-                console.log("DeleteItem succeeded.");
-                resolve(data);
+                //dynamo callback data return {}(empty)
+                console.log("#Delete Lock succeeded.");
+                resolve({'statusCode':200,'msg':"delete Lock success"});
             }
         });
     });
 }
 
-exports.quer=function(tableName,keyValue){
+exports.querLoc=function(tableName,keyValue){
     let params = {
         TableName : tableName,
         KeyConditionExpression: "#k = :vvvv",
@@ -122,52 +152,81 @@ exports.quer=function(tableName,keyValue){
     return new Promise((resolve,reject)=>{
         docClient.query(params, function(err, data) {
             if (err) {
-                console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
-                reject(err);
+                console.error("!! QueryLoc Error:", err["code"]);
+                    resolve({'statusCode':400,'msg':"invaild request"});
             } else {
-                console.log("Query succeeded.",data['Items']);
-                resolve(data['Items']);
+                console.log("#Query succeeded. Find:",data['Count'],'item');
+                if(data['Count']==0 && data['Items']==""){
+                    resolve({'statusCode':400,'msg':"lock not exist or invaild request"});
+                }else{
+                    resolve({'statusCode':200,'msg':data['Items']});
+                }
             }
         });
     });
 }
 
-exports.updatCount=function(idV,countOper){
+exports.updatSemaCount=function(idVal,checkHandle,countOper,ttl){
+    let oper=countOper>0 ? true : false;
+    if(countOper>1) countOper=1;
+    if(countOper<-1) countOper=-1;
+    let beat=ttl>0?ttl:3 || 3;
+    beat=(beat>10?10:beat)*1000;
+
+    //condition > add/release 1 each time , remain/count<max
     let params={
-        TableName: 'test01_count',
-        Key:{ 'id': idV},
-        UpdateExpression: "set #da.#de= :d , #da.#cn = #da.#cn+:c",
-        ConditionExpression: "#da.#cn <= :num",
+        TableName: 'SemaTB',
+        Key:{ 'id': idVal},
+        UpdateExpression: "set #da.#ex= #da.#ex+:d , #da.#cn = #da.#cn+:c , #da.#rc = #da.#rc-:c" ,
+        ConditionExpression: "#da.#cn>=:z AND #da.#rc >= :c AND #da.#ke=:k AND #da.#hd=:h",
         ExpressionAttributeNames:{
             "#da":'data',
-            "#de":'date',
-            "#cn":'count',
+            "#ke":'id',
+            "#hd":'handle',
+            "#ex":'expiry',
+            "#cn":'countInuse',
+            "#rc":'remainCapacity',
         },
         ExpressionAttributeValues:{
-            ":d":Date.now(),
+            ":k":idVal,
+            ":h":checkHandle,
+            ":d":beat,
             ":c":countOper,
-            ":num":10-countOper,
+            ":z":-countOper,
         },
         ReturnValues:"UPDATED_NEW"
     };
+
     return new Promise((resolve,reject)=>{
         docClient.update(params, function(err, data) {
             if (err) {
-                console.error("Unable to update item. Error JSON:", JSON.stringify(err, null, 2));
-                reject(err);
+                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+                    if(oper){
+                        console.log('#409,out of lock maxCapacity / not been created or invaild request');
+                        resolve({'statusCode':409,'msg':'out of lock maxCapacity / lock not been created or invaild request'});
+                    }else{
+                        console.log('#200,lock released on maxCapacity.');
+                        resolve({'statusCode':200,'msg':'lock released on maxCapacity'});
+                    }
+                }else{
+                    console.error("!! UpdatSemaCount Error:", err['code']);
+                    resolve({'statusCode':400,'msg':"invaild request"});
+                }
             } else {
-                console.log("UpdateItem succeeded.",data);
-                resolve('updated');
+                console.log("#UpdatSemaCount succeeded.");
+                resolve({'statusCode':200,'msg':data['Attributes']['data']});
             }
         });
     });
 }
 
-exports.updatItem=function(idVal,checkHandle){
+exports.heartBeat=function(tableName,idVal,checkHandle,delayTime){
+    let delay_time=delayTime>0?delayTime:5 || 5;
+    delay_time=(delay_time>10?10:delay_time)*1000;
     let params={
-        TableName: 'test01',
+        TableName: tableName,
         Key:{ 'id': idVal},
-        UpdateExpression: "set #da.#ep= :d",
+        UpdateExpression: "set #da.#ep = #da.#ep+:d",
         ConditionExpression: "#da.#ke=:k AND #da.#hd=:h",
         ExpressionAttributeNames:{
             "#da":'data',
@@ -178,18 +237,24 @@ exports.updatItem=function(idVal,checkHandle){
         ExpressionAttributeValues:{
             ":k":idVal,
             ":h":checkHandle,
-            ":d":Date.now()+10000,
+            ":d":delay_time,
         },
         ReturnValues:"UPDATED_NEW"
     };
+
     return new Promise((resolve,reject)=>{
         docClient.update(params, function(err, data) {
             if (err) {
-                console.error("Unable to update item. Error JSON:", JSON.stringify(err, null, 2));
-                reject(err);
+                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+                    console.log('#400,lock not exist or invaild request');
+                    resolve({'statusCode':400,'msg':'error or invaild request'});
+                }else{
+                    console.error("!! DeleteLoc Error:", err["code"]);
+                    resolve({'statusCode':400,'msg':"invaild request"});
+                }
             } else {
-                console.log("UpdateItem succeeded.",data);
-                resolve(data['Attributes']['data']);
+                console.log("#UpdatSemaTime succeeded.");
+                resolve({'statusCode':200,'msg':data['Attributes']['data']});
             }
         });
     });
@@ -198,13 +263,12 @@ exports.updatItem=function(idVal,checkHandle){
 
 //==================================================================================================
 
-//create Table first
-console.log('## create item table');
-module.exports.creaTable('test01').then(()=>{
-    console.log('## create counting table');//crete count table
-    return module.exports.creaTable('test01_count');
-}).then(()=>{
-    console.log('## create counting object');//counting item 0
-    return module.exports.crea('test01_count','main',{'date':Date.now(),'count':0});
-});
+//TEST FOR RESET TABLE
+// module.exports.deleTable('MutexTB').then(()=>{
+//     return module.exports.deleTable('SemaTB');
+// })
 
+//create Table first
+module.exports.creaTable('MutexTB').then(()=>{
+    return module.exports.creaTable('SemaTB');
+})
