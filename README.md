@@ -1,8 +1,18 @@
-# Distributed Lock
+# Intro
+the distributed lock is base on AWS dynamodb.
 
-## Semaphore
+# Usage
 
-## Mutex
+## SET CREDENTIALS FIRST
+please set the credential before you use the distributed lock API
+path : `.aws/credentials`
+more detal on [Getting an AWS Access Key](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SettingUp.DynamoWebService.html#SettingUp.DynamoWebService.GetCredentials).
+
+## Distributed Lock
+
+### Semaphore
+
+### Mutex
 
 
 # Swagger generated server

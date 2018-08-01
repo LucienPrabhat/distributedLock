@@ -1,9 +1,15 @@
 let AWS=require('aws-sdk');
 
 AWS.config.update({
-  region: "us-west-2",
-  endpoint: "http://localhost:8000"
+  region: "ap-northeast-1",
 });
+
+//TEST FOR LOCAL DYNAMODB TESTING
+// AWS.config.update({
+//   region: "us-west-2",
+//   endpoint: "http://localhost:8000"
+// });
+
 let dynamodb= new AWS.DynamoDB();
 let docClient= new AWS.DynamoDB.DocumentClient();
 //<<some exe in the bottom>>//
@@ -266,6 +272,9 @@ exports.heartBeat=function(tableName,idVal,checkHandle,delayTime){
 //TEST FOR RESET TABLE
 // module.exports.deleTable('MutexTB').then(()=>{
 //     return module.exports.deleTable('SemaTB');
+// }).then(()=>{
+//     module.exports.creaTable('MutexTB');
+//     module.exports.creaTable('SemaTB');
 // })
 
 //create Table first
