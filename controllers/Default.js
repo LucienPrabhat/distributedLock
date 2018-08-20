@@ -47,10 +47,11 @@ module.exports.queryMutex = function queryMutex (req, res, next) {
   var mutexKey = req.swagger.params['mutexKey'].value;
   Default.queryMutex(mutexKey)
     .then(function (response) {
-      let msg={
-        "id":response['msg'][0]['data']['id'],
-        "expiry":response['msg'][0]['data']['expiry']
-      };
+      let msg=(response['statusCode']==200) ?
+        {
+          "id":response['msg'][0]['data']['id'],
+          "expiry":response['msg'][0]['data']['expiry'],
+        } : response['msg'];
       utils.writeJson(res, {"message":msg}, response['statusCode']);
     })
     .catch(function (response) {
@@ -128,11 +129,12 @@ module.exports.querySema = function querySema (req, res, next) {
   var semaKey = req.swagger.params['semaKey'].value;
   Default.querySema(semaKey)
     .then(function (response) {
-      let msg={
-        "id":response['msg'][0]['data']['id'],
-        "expiry":response['msg'][0]['data']['expiry'],
-        "remain/maxCapacity": response['msg'][0]['data']['remainCapacity']+"/"+response['msg'][0]['data']['maxCapacity'],
-      };
+      let msg=(response['statusCode']==200) ?
+        {
+          "id":response['msg'][0]['data']['id'],
+          "expiry":response['msg'][0]['data']['expiry'],
+          "remain/maxCapacity": response['msg'][0]['data']['remainCapacity']+"/"+response['msg'][0]['data']['maxCapacity'],
+        } : response['msg'];
       utils.writeJson(res, {"message":msg}, response['statusCode']);
     })
     .catch(function (response) {

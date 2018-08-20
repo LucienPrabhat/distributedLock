@@ -8,8 +8,7 @@ const uuidv4 = require('uuid/v4');
 
 //Acquire a Mutex
 exports.lockMutex = function(mutexKey,mutexttl) {
-  let ttl=mutexttl['ttl'] || 5;
-  ttl=ttl<0?-ttl:ttl;
+  let ttl=(mutexttl['ttl']>0 && mutexttl['ttl']<=3600)? mutexttl['ttl'] : 60;
   let obj = {
       "id" : mutexKey,
       "handle" : uuidv4(),
@@ -39,9 +38,8 @@ exports.queryMutex = function(mutexKey) {
 
 //Create semaphore
 exports.createSema = function(semaKey,semaArgs) {
-  let ttl=semaArgs['ttl'] || 15;
-  ttl=ttl<0?-ttl:ttl;
-  let maxCapacity=semaArgs['maxCapacity'] || 15;
+  let ttl=(semaArgs['ttl']>0 && semaArgs['ttl']<=3600)? semaArgs['ttl'] : 60;
+  let maxCapacity=semaArgs['maxCapacity']>0 ? semaArgs['maxCapacity'] : 15;
   let obj = {
       "id" : semaKey,
       "handle" : uuidv4(),
