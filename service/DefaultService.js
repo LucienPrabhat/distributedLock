@@ -35,38 +35,33 @@ exports.queryMutex = function(mutexKey) {
 //SEMAPHORE
 
 //Create semaphore
-exports.createSema = function(semaKey,semaArgs) {
-  let ttl=(semaArgs['ttl']>0 && semaArgs['ttl']<=3600)? semaArgs['ttl'] : 60;
-  let maxCapacity=semaArgs['maxCapacity']>0 ? semaArgs['maxCapacity'] : 15;
+exports.createSema = function(semaKey,semaLockargs) {
   let obj = {
       "id" : semaKey,
-      "handle" : uuidv4(),
-      "countInuse" : 0,
-      "remainCapacity" : maxCapacity,
-      "maxCapacity" : maxCapacity,
-      "expiry" : Date.now()+(ttl*1000),
+      "seatTotal" : semaLockargs.seats,
+      "seatVaild" : semaLockargs.seats,
   };
   return DB.creaLoc('SemaTB',semaKey,obj);
 }
 
 //Delete semaphore
-exports.deleteSema = function(semaKey,semaHandle) {
-  return DB.deleLoc('SemaTB',semaKey,semaHandle);
+exports.deleteSema = function(semaKey) {
+  return DB.deleLoc('SemaTB',semaKey,semaHandle);//under reconstruction
 }
 
-//Acquire(+1) space from semaphore
-exports.lockSema = function(semaKey,semaHandle,semattl) {
-  return DB.updatSemaCount(semaKey,semaHandle,1,semattl['ttl']);
+//Acquire(+1) seat from semaphore
+exports.aquireSeat = function(semaKey,semaSeatttl) {
+  return DB.updatSemaCount(semaKey,uuidv4(),1,semaSeatttl.ttl);//under reconstruction
 }
 
-//Release(-1) space from semaphore
-exports.releaseSema = function(semaKey,semaHandle) {
-  return DB.updatSemaCount(semaKey,semaHandle,-1,0);
+//Release(-1) seat from semaphore
+exports.releaseSeat = function(semaKey,semaHandle) {
+  return DB.updatSemaCount(semaKey,semaHandle.handle,-1,0);//under reconstruction
 }
 
-//Update semaphore expiry(ttl)
-exports.extendSema = function(semaKey,semaHandle,semattl) {
-  return DB.heartBeat('SemaTB',semaKey,semaHandle,semattl['ttl']);
+//Update seat expiry(ttl)
+exports.postponeSeat = function(semaKey,semaSeatArgs) {
+  return DB.heartBeat('SemaTB',semaKey,semaSeatArgs.handle,semaSeatArgs.ttl);//under reconstruction
 }
 
 //Query semaphore status
