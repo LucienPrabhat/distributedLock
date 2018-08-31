@@ -10,36 +10,8 @@ schemes:
 - "http"
 paths:
   /semaphore/{semaKey}:
-    post:
-      summary: "Create semaphore"
-      operationId: "createSema"
-      produces:
-      - "application/json"
-      parameters:
-      - name: "semaKey"
-        in: "path"
-        description: "Semaphore id"
-        required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      - in: "body"
-        name: "semaArgs"
-        description: "maximum capacity and expiry"
-        required: false
-        schema:
-          $ref: "#/definitions/semaArgs"
-      responses:
-        200:
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Semaphore"
-        400:
-          description: "invaild request"
-        409:
-          description: "ID in used / has been created"
-      x-swagger-router-controller: "Default"
     get:
-      summary: "Query semaphore status"
+      summary: "Query semaphore seat"
       operationId: "querySema"
       produces:
       - "application/json"
@@ -54,46 +26,15 @@ paths:
         200:
           description: "successful operation"
           schema:
-            $ref: "#/definitions/Semaphore"
-        400:
-          description: "id not exist or invaild request"
-      x-swagger-router-controller: "Default"
-  /semaphore/{semaKey}/{semaHandle}:
-    post:
-      summary: "Acquire(+1) space from semaphore"
-      operationId: "lockSema"
-      parameters:
-      - name: "semaKey"
-        in: "path"
-        description: "Semaphore ID"
-        required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      - name: "semaHandle"
-        in: "path"
-        description: "Semaphore handle(uuid)"
-        required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      - in: "body"
-        name: "semattl"
-        description: "expiry"
-        required: false
-        schema:
-          $ref: "#/definitions/semattl"
-      responses:
-        200:
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Semaphore"
+            $ref: "#/definitions/semaphoreLock"
         400:
           description: "invaild request"
-        409:
-          description: "out of maxCapacity"
+        404:
+          description: "semaphore not exist"
       x-swagger-router-controller: "Default"
     put:
-      summary: "Release(-1) space from semaphore"
-      operationId: "releaseSema"
+      summary: "Create semaphore Lock"
+      operationId: "createSema"
       produces:
       - "application/json"
       parameters:
@@ -103,100 +44,126 @@ paths:
         required: true
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
-      - name: "semaHandle"
-        in: "path"
-        description: "Semaphore handle(uuid)"
+      - in: "body"
+        name: "semaLockargs"
+        description: "define semaphore seats"
         required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
+        schema:
+          $ref: "#/definitions/semaLockargs"
       responses:
         200:
           description: "successful operation"
           schema:
-            $ref: "#/definitions/Semaphore"
+            $ref: "#/definitions/semaphoreLock"
         400:
           description: "invaild request"
+        409:
+          description: "semaphore has been used"
       x-swagger-router-controller: "Default"
     delete:
-      summary: "Delete semaphore"
+      summary: "Delete semaphore Lock"
       operationId: "deleteSema"
       produces:
       - "application/json"
       parameters:
       - name: "semaKey"
         in: "path"
-        description: "Semaphore ID"
-        required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      - name: "semaHandle"
-        in: "path"
-        description: "Semaphore handle(uuid)"
+        description: "Semaphore id"
         required: true
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
       responses:
         200:
           description: "successful operation"
-          schema:
-            $ref: "#/definitions/Semaphore"
         400:
           description: "invaild request"
+        401:
+          description: "invaild request"
       x-swagger-router-controller: "Default"
-    patch:
-      summary: "Update semaphore expiry(ttl)"
-      operationId: "extendSema"
+  /semaphore/{semaKey}/Seat:
+    put:
+      summary: "Acquire(+1) seat from semaphore"
+      operationId: "aquireSeat"
+      produces:
+      - "application/json"
       parameters:
       - name: "semaKey"
         in: "path"
-        required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      - name: "semaHandle"
-        in: "path"
-        description: "Semaphore handle(uuid)"
+        description: "Semaphore id"
         required: true
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
       - in: "body"
-        name: "semattl"
-        required: false
-        schema:
-          $ref: "#/definitions/semattl_1"
-      responses:
-        200:
-          description: "successful operation"
-          schema:
-            $ref: "#/definitions/Semaphore"
-        400:
-          description: "invaild request"
-      x-swagger-router-controller: "Default"
-  /mutex/{mutexKey}:
-    put:
-      summary: "Acquire a Mutex"
-      operationId: "lockMutex"
-      parameters:
-      - name: "mutexKey"
-        in: "path"
-        description: "Mutex ID"
+        name: "semaSeatttl"
+        description: "expiry"
         required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      - in: "body"
-        name: "mutexttl"
-        required: false
         schema:
-          $ref: "#/definitions/mutexttl"
+          $ref: "#/definitions/semaSeatttl"
       responses:
         200:
           description: "successful operation"
           schema:
-            $ref: "#/definitions/Mutex"
+            $ref: "#/definitions/semaphoreSeat"
         400:
           description: "invaild request"
         409:
-          description: "ID in used / has been created"
+          description: "out of space"
       x-swagger-router-controller: "Default"
+    delete:
+      summary: "Release(-1) space from semaphore"
+      operationId: "releaseSeat"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "semaKey"
+        in: "path"
+        description: "Semaphore id"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      - in: "body"
+        name: "Semaphore Seat Handle"
+        description: "Semaphore Seat handle(uuid)"
+        required: true
+        schema:
+          $ref: "#/definitions/semaSeathandle"
+      responses:
+        200:
+          description: "successful operation"
+        400:
+          description: "invaild request"
+        401:
+          description: "invaild request"
+      x-swagger-router-controller: "Default"
+    patch:
+      summary: "Update seat expiry(ttl)"
+      operationId: "postponeSeat"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "semaKey"
+        in: "path"
+        description: "Semaphore id"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      - in: "body"
+        name: "semaSeatArgs"
+        description: "Semaphore seat args"
+        required: true
+        schema:
+          $ref: "#/definitions/semaSeatargs"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/semaphoreSeat"
+        400:
+          description: "invaild request"
+        401:
+          description: "incorrect data"
+      x-swagger-router-controller: "Default"
+  /mutex/{mutexKey}:
     get:
       summary: "Query mutex status"
       operationId: "queryMutex"
@@ -205,7 +172,7 @@ paths:
       parameters:
       - name: "mutexKey"
         in: "path"
-        description: "Mutex identifier"
+        description: "Mutex id"
         required: true
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
@@ -213,11 +180,39 @@ paths:
         200:
           description: "successful operation"
           schema:
-            $ref: "#/definitions/Mutex"
+            $ref: "#/definitions/mutex"
         400:
-          description: "id not exist or invaild request"
+          description: "invaild request"
+        404:
+          description: "mutex not exist"
       x-swagger-router-controller: "Default"
-  /mutex/{mutexKey}/{mutexHandle}:
+    put:
+      summary: "Mutex lock"
+      operationId: "lockMutex"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "mutexKey"
+        in: "path"
+        description: "Mutex id"
+        required: true
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+      - in: "body"
+        name: "mutexttl"
+        required: true
+        schema:
+          $ref: "#/definitions/mutexttl"
+      responses:
+        200:
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/mutex"
+        400:
+          description: "invaild request"
+        409:
+          description: "ID has been uesd"
+      x-swagger-router-controller: "Default"
     delete:
       summary: "Delete a Mutex(Unlock)"
       operationId: "unlockMutex"
@@ -226,145 +221,192 @@ paths:
       parameters:
       - name: "mutexKey"
         in: "path"
-        description: "Mutex ID"
+        description: "Mutex id"
         required: true
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
-      - name: "mutexHandle"
-        in: "path"
+      - in: "body"
+        name: "mutexHandle"
         description: "Mutex handle(uuid)"
         required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
+        schema:
+          $ref: "#/definitions/mutexHandle"
       responses:
         200:
           description: "successful operation"
-          schema:
-            $ref: "#/definitions/Mutex"
         400:
+          description: "invaild request"
+        401:
           description: "invaild request"
       x-swagger-router-controller: "Default"
     patch:
       summary: "Update mutex expiry(ttl)"
       operationId: "extendMutex"
+      produces:
+      - "application/json"
       parameters:
       - name: "mutexKey"
         in: "path"
-        required: true
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      - name: "mutexHandle"
-        in: "path"
-        description: "Mutex handle(uuid)"
+        description: "Mutex id"
         required: true
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
       - in: "body"
-        name: "mutexttl"
-        required: false
+        name: "mutexArg"
+        required: true
         schema:
-          $ref: "#/definitions/mutexttl_1"
+          $ref: "#/definitions/mutexArgs"
       responses:
         200:
           description: "successful operation"
           schema:
-            $ref: "#/definitions/Mutex"
+            $ref: "#/definitions/mutex"
         400:
           description: "invaild request"
+        401:
+          description: "incorrect data"
       x-swagger-router-controller: "Default"
 definitions:
-  Semaphore:
+  semaphoreLock:
     type: "object"
     required:
-    - "countInuse"
-    - "expiry"
     - "id"
-    - "maxCapacity"
+    - "seatTotal"
+    - "seatVaild"
     properties:
       id:
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
-      handle:
+      seatTotal:
+        type: "integer"
+        format: "int64"
+      seatVaild:
+        type: "integer"
+        format: "int64"
+    example:
+      id: "exampleKey"
+      seatTotal: 35
+      seatVaild: 30
+  semaphoreSeat:
+    type: "object"
+    required:
+    - "expiry"
+    - "handle"
+    - "id"
+    properties:
+      id:
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
       expiry:
         type: "integer"
         format: "int64"
-      maxCapacity:
-        type: "integer"
-        format: "int64"
-      countInuse:
-        type: "integer"
-        format: "int64"
-      remainCapacity:
-        type: "integer"
-        format: "int64"
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
     example:
-      remainCapacity: 5
-      countInuse: 1
-      maxCapacity: 6
-      handle: "handle"
-      id: "id"
-      expiry: 0
-  Mutex:
+      id: "exampleKey"
+      expiry: 19387654321
+      handle: "wer123-dw24dffe-sdwqed23"
+  semaLockargs:
+    type: "object"
+    required:
+    - "seats"
+    properties:
+      seats:
+        type: "integer"
+        minimum: 1
+    example:
+      seats: 150
+  semaSeatttl:
+    type: "object"
+    required:
+    - "ttl"
+    properties:
+      ttl:
+        type: "integer"
+        minimum: 1
+        maximum: 3600
+    example:
+      ttl: 45
+  semaSeathandle:
+    type: "object"
+    required:
+    - "handle"
+    properties:
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+    example:
+      handle: "123jijl-efwef-fwref343"
+  semaSeatargs:
+    type: "object"
+    required:
+    - "handle"
+    - "ttl"
+    properties:
+      ttl:
+        type: "integer"
+        minimum: 1
+        maximum: 3600
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+    example:
+      ttl: 45
+      handle: "123jijl-efwef-fwref343"
+  mutex:
     type: "object"
     required:
     - "expiry"
     - "id"
-    - "locked"
     properties:
       id:
         type: "string"
         pattern: "^[a-zA-Z0-9\\-_]+$"
-      handle:
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
-      locked:
-        type: "boolean"
-        default: false
       expiry:
         type: "integer"
         format: "int64"
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
     example:
-      handle: "handle"
-      id: "id"
-      expiry: 0
-      locked: false
-  semaArgs:
-    type: "object"
-    properties:
-      maxCapacity:
-        type: "integer"
-        minimum: 1
-      ttl:
-        type: "integer"
-        minimum: 1
-        maximum: 3600
-  semattl:
-    type: "object"
-    properties:
-      ttl:
-        type: "integer"
-        minimum: 1
-        maximum: 3600
-  semattl_1:
-    type: "object"
-    properties:
-      ttl:
-        type: "integer"
-        minimum: 1
-        maximum: 3600
+      id: "exampleKey"
+      expiry: 135689027876
+      handle: "afed12-dek32kdkl-w222jikj"
   mutexttl:
     type: "object"
+    required:
+    - "ttl"
     properties:
       ttl:
         type: "integer"
         minimum: 1
         maximum: 3600
-  mutexttl_1:
+    example:
+      ttl: 45
+  mutexHandle:
     type: "object"
+    required:
+    - "handle"
+    properties:
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+    example:
+      handle: "123jijl-efwef-fwref343"
+  mutexArgs:
+    type: "object"
+    required:
+    - "handle"
+    - "ttl"
     properties:
       ttl:
         type: "integer"
         minimum: 1
         maximum: 3600
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
+    example:
+      ttl: 45
+      handle: "123jijl-efwef-fwref343"
