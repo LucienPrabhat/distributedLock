@@ -8,24 +8,22 @@ const uuidv4 = require('uuid/v4');
 
 //Acquire a Mutex
 exports.lockMutex = function(mutexKey,mutexttl) {
-  let ttl=(mutexttl['ttl']>0 && mutexttl['ttl']<=3600)? mutexttl['ttl'] : 60;
   let obj = {
       "id" : mutexKey,
       "handle" : uuidv4(),
-      "expiry" : Date.now()+(ttl*1000),
-      "locked" : true,
+      "expiry" : Date.now()+(mutexttl.ttl*1000),
   };
   return DB.creaLoc('MutexTB',mutexKey,obj);
 }
 
 //Delete a Mutex(Unlock)
 exports.unlockMutex = function(mutexKey,mutexHandle) {
-  return DB.deleLoc('MutexTB',mutexKey,mutexHandle);
+  return DB.deleLoc('MutexTB',mutexKey,mutexHandle.handle);
 }
 
 //Update mutex expiry(ttl)
-exports.extendMutex = function(mutexKey,mutexHandle,mutexttl) {
-  return DB.heartBeat('MutexTB',mutexKey,mutexHandle,mutexttl['ttl']);
+exports.extendMutex = function(mutexKey,mutexArg) {
+  return DB.heartBeat('MutexTB',mutexKey,mutexArg.handle,mutexArg.ttl);
 }
 
 //Query mutex status
