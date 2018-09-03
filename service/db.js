@@ -1,17 +1,18 @@
-let AWS=require('aws-sdk');
+let db=require("../config/config.js");
+// let AWS=require('aws-sdk');
 
 // AWS.config.update({
 //   region: "ap-northeast-1",
 // });
 
 //TEST FOR LOCAL DYNAMODB TESTING
-AWS.config.update({
-  region: "us-west-2",
-  endpoint: "http://localhost:8000"
-});
+// AWS.config.update({
+//   region: "us-west-2",
+//   endpoint: "http://localhost:8000"
+// });
 
-let dynamodb= new AWS.DynamoDB();
-let docClient= new AWS.DynamoDB.DocumentClient();
+// let dynamodb= new AWS.DynamoDB();
+// let docClient= new AWS.DynamoDB.DocumentClient();
 //<<some exe in the bottom>>//
 
 //=============================================================================
@@ -35,7 +36,7 @@ exports.creaLoc=function(tb,keyVal,key2Val){
     };
     //condition > without key 'data'(conflict)
     return new Promise((resolve,reject)=>{
-        docClient.put(params, function(err, data) {
+        db.docClient.put(params, function(err, data) {
             if (err) {
                 if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
                     console.log('#409,lock conflict or in use.');
@@ -70,7 +71,7 @@ exports.deleLoc=function(tb,idVal,checkHandle){
     };
     //condition > key and handle correctspond
     return new Promise((resolve,reject)=>{
-        docClient.delete(params, function(err, data) {
+        db.docClient.delete(params, function(err, data) {
             if (err) {
                 if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
                     console.log('#400,lock not exist or invaild request');
@@ -110,7 +111,7 @@ exports.querLoc=function(lockType,tableName,keyValue){
     };
     let message = (lockType === "mutex") ? mutexMsg : semaMsg;
     return new Promise((resolve,reject)=>{
-        docClient.query(params, function(err, data) {
+        db.docClient.query(params, function(err, data) {
             if (err) {
                 console.error("!! QueryLoc Error:", err["code"]);
                 resolve({'statusCode':400,'msg':"invaild request"});
@@ -159,7 +160,7 @@ exports.updatSemaCount=function(idVal,checkHandle,countOper,ttl){
     };
 
     return new Promise((resolve,reject)=>{
-        docClient.update(params, function(err, data) {
+        db.docClient.update(params, function(err, data) {
             if (err) {
                 if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
                     if(oper){
@@ -205,7 +206,7 @@ exports.heartBeat=function(tableName,idVal,checkHandle,delayTime){
     };
 
     return new Promise((resolve,reject)=>{
-        docClient.update(params, function(err, data) {
+        db.docClient.update(params, function(err, data) {
             if (err) {
                 if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
                     console.log('#400,lock not exist or invaild request');
