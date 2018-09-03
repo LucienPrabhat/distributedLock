@@ -5,7 +5,7 @@ const uuidv4 = require('uuid/v4');
 //MUTEX
 
 //Acquire a Mutex
-exports.lockMutex = function(mutexKey,mutexttl) {
+function lockMutex(mutexKey,mutexttl) {
   let obj = {
       "id" : mutexKey,
       "handle" : uuidv4(),
@@ -15,25 +15,25 @@ exports.lockMutex = function(mutexKey,mutexttl) {
 }
 
 //Delete a Mutex(Unlock)
-exports.unlockMutex = function(mutexKey,mutexHandle) {
+function unlockMutex(mutexKey,mutexHandle) {
   return DB.deleLoc('MutexTB',mutexKey,mutexHandle.handle);
 }
 
 //Update mutex expiry(ttl)
-exports.extendMutex = function(mutexKey,mutexArg) {
+function extendMutex(mutexKey,mutexArg) {
   return DB.heartBeat('MutexTB',mutexKey,mutexArg.handle,mutexArg.ttl);
 }
 
 //Query mutex status
-exports.queryMutex = function(mutexKey) {
-  return DB.querLoc('MutexTB',mutexKey);
+function queryMutex(mutexKey) {
+  return DB.querLoc('mutex','MutexTB',mutexKey);
 }
 
 
 //SEMAPHORE
 
 //Create semaphore
-exports.createSema = function(semaKey,semaLockargs) {
+function createSema(semaKey,semaLockargs) {
   let obj = {
       "id" : semaKey,
       "seatTotal" : semaLockargs.seats,
@@ -43,27 +43,40 @@ exports.createSema = function(semaKey,semaLockargs) {
 }
 
 //Delete semaphore
-exports.deleteSema = function(semaKey) {
+function deleteSema(semaKey) {
   return DB.deleLoc('SemaTB',semaKey,semaHandle);//under reconstruction
 }
 
 //Acquire(+1) seat from semaphore
-exports.aquireSeat = function(semaKey,semaSeatttl) {
+function aquireSeat(semaKey,semaSeatttl) {
   return DB.updatSemaCount(semaKey,uuidv4(),1,semaSeatttl.ttl);//under reconstruction
 }
 
 //Release(-1) seat from semaphore
-exports.releaseSeat = function(semaKey,semaHandle) {
+function releaseSeat(semaKey,semaHandle) {
   return DB.updatSemaCount(semaKey,semaHandle.handle,-1,0);//under reconstruction
 }
 
 //Update seat expiry(ttl)
-exports.postponeSeat = function(semaKey,semaSeatArgs) {
+function postponeSeat(semaKey,semaSeatArgs) {
   return DB.heartBeat('SemaTB',semaKey,semaSeatArgs.handle,semaSeatArgs.ttl);//under reconstruction
 }
 
 //Query semaphore status
-exports.querySema = function(semaKey) {
-  return DB.querLoc('SemaTB',semaKey);
+function querySema(semaKey) {
+  return DB.querLoc('semaphore','SemaTB',semaKey);
+}
+
+module.exports={
+  lockMutex,
+  unlockMutex,
+  extendMutex,
+  queryMutex,
+  createSema,
+  deleteSema,
+  aquireSeat,
+  releaseSeat,
+  postponeSeat,
+  querySema
 }
 
