@@ -1,14 +1,14 @@
 let AWS=require('aws-sdk');
 
-AWS.config.update({
-  region: "ap-northeast-1",
-});
+// AWS.config.update({
+//   region: "ap-northeast-1",
+// });
 
 //TEST FOR LOCAL DYNAMODB TESTING
-// AWS.config.update({
-//   region: "us-west-2",
-//   endpoint: "http://localhost:8000"
-// });
+AWS.config.update({
+  region: "us-west-2",
+  endpoint: "http://localhost:8000"
+});
 
 let dynamodb= new AWS.DynamoDB();
 let docClient= new AWS.DynamoDB.DocumentClient();
@@ -16,62 +16,6 @@ let docClient= new AWS.DynamoDB.DocumentClient();
 
 //=============================================================================
 
-
-exports.creaTable=function(tableName){
-    var params = {
-        TableName : tableName,
-        KeySchema: [ 
-            { AttributeName: 'id', KeyType: "HASH"}
-        ],
-        AttributeDefinitions: [
-            { AttributeName: 'id', AttributeType: "S" }
-        ],
-        ProvisionedThroughput: {
-            ReadCapacityUnits: 10, WriteCapacityUnits: 10
-        }
-    };
-    let tb=tableName;
-    return new Promise((resolve,reject)=>{
-        dynamodb.createTable(params, function(err, data) {
-            if (err) {
-                if(err['statusCode']==400 && err['code']=='ResourceInUseException'){
-                    console.log('#200,table exist,skip...');
-                    resolve({'statusCode':200,'msg':'table exist.'});
-                }else{
-                    console.error("!! CreateTable Error:", err["code"]);
-                    resolve({'statusCode':400,'msg':"invaild request"});
-                }
-            } else {
-                console.log("#Table Created:",tb);
-                resolve({'statusCode':200,'msg':data});
-            }
-        });
-        
-    });
-}
-
-exports.deleTable=function(tableName){
-    var params = {
-        TableName : tableName
-    };
-    let tb=tableName;
-    return new Promise((resolve,reject)=>{
-        dynamodb.deleteTable(params, function(err, data) {
-            if (err) {
-                if(err['statusCode']==400 && err['code']=='ResourceNotFoundException'){
-                    console.log('#200,table NOT exist,skip...');
-                    resolve({'statusCode':200,'msg':'table NOT exist.'});
-                }else{
-                    console.error("!! DeleteTable Error:", err["code"]);
-                    resolve({'statusCode':400,'msg':"invaild request"});
-                }
-            } else {
-                console.log("#Table Deleted:",tb);
-                resolve({'statusCode':200,'msg':data});
-            }
-        });
-    });
-}
 
 exports.creaLoc=function(tb,keyVal,key2Val){
     let params={
@@ -144,7 +88,7 @@ exports.deleLoc=function(tb,idVal,checkHandle){
     });
 }
 
-exports.querLoc=function(tableName,keyValue){
+exports.querLoc=function(lockType,tableName,keyValue){
     let params = {
         TableName : tableName,
         KeyConditionExpression: "#k = :vvvv",
@@ -155,6 +99,16 @@ exports.querLoc=function(tableName,keyValue){
             ":vvvv": keyValue
         }
     };
+    let mutexMsg={   
+        "id":data['Item'][0]['data']['id'],
+        "expiry":data['Item'][0]['data']['expiry'],
+    };
+    let semaMsg={   
+        "id":data['Item'][0]['data']['id'],
+        "seatTotal":data['Item'][0]['data']['seatTotal'],
+        "seatVaild":data['Item'][0]['data']['seatVaild'],
+    };
+    let message = (lockType === "mutex") ? mutexMsg : semaMsg;
     return new Promise((resolve,reject)=>{
         docClient.query(params, function(err, data) {
             if (err) {
@@ -163,9 +117,9 @@ exports.querLoc=function(tableName,keyValue){
             } else {
                 console.log("#Query succeeded. Find:",data['Count'],'item');
                 if(data['Count']==0 && data['Items']==""){
-                    resolve({'statusCode':400,'msg':"lock not exist or invaild request"});
+                    resolve({'statusCode':404,'msg':"lock not exist"});
                 }else{
-                    resolve({'statusCode':200,'msg':data['Items']});
+                    resolve({'statusCode':200,'msg':message});
                 }
             }
         });
@@ -268,20 +222,3 @@ exports.heartBeat=function(tableName,idVal,checkHandle,delayTime){
     });
 }
 
-
-//==================================================================================================
-
-//TEST FOR RESET TABLE
-exports.ResetForTest=function(){
-    module.exports.deleTable('MutexTB').then(()=>{
-        return module.exports.deleTable('SemaTB');
-    }).then(()=>{
-        module.exports.creaTable('MutexTB');
-        module.exports.creaTable('SemaTB');
-    })
-};
-
-//create Table first
-module.exports.creaTable('MutexTB').then(()=>{
-    return module.exports.creaTable('SemaTB');
-})
