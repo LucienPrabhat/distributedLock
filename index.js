@@ -18,21 +18,6 @@ let options = {
 let spec = fs.readFileSync(path.join(__dirname,'api/swagger.yaml'), 'utf8');
 let swaggerDoc = jsyaml.safeLoad(spec);
 
-// create the default table in dynamodb for initial
-let AWS=require('aws-sdk');
-// AWS.config.update({
-//   region: "ap-northeast-1",
-// });
-
-//TEST FOR LOCAL DYNAMODB TESTING
-AWS.config.update({
-  region: "us-west-2",
-  endpoint: "http://localhost:8000"
-});
-let dynamodb= new AWS.DynamoDB();
-let docClient= new AWS.DynamoDB.DocumentClient();
-
-
 // Initialize the Swagger middleware
 swaggerTools.initializeMiddleware(swaggerDoc, function (middleware) {
 
