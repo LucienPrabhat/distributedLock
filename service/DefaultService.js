@@ -1,5 +1,3 @@
-'use strict';
-
 let DB=require("./db.js");
 const uuidv4 = require('uuid/v4');
 

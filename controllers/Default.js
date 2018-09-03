@@ -1,17 +1,15 @@
-'use strict';
-
-var utils = require('../utils/writer.js');
-var Default = require('../service/DefaultService');
+let utils = require('../utils/writer.js');
+let Default = require('../service/DefaultService');
 
 
 //MUTEX
 
 module.exports.lockMutex = function lockMutex (req, res, next) {
-  var mutexKey = req.swagger.params['mutexKey'].value;
-  var mutexttl = req.swagger.params['mutexttl'].value;
+  let mutexKey = req.swagger.params['mutexKey'].value;
+  let mutexttl = req.swagger.params['mutexttl'].value;
   Default.lockMutex(mutexKey,mutexttl)
     .then(function (response) {
-      utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
+    utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
     })
     .catch(function (response) {
       utils.writeJson(res, response);
@@ -19,11 +17,11 @@ module.exports.lockMutex = function lockMutex (req, res, next) {
 };
 
 module.exports.unlockMutex = function unlockMutex (req, res, next) {
-  var mutexKey = req.swagger.params['mutexKey'].value;
-  var mutexHandle = req.swagger.params['mutexHandle'].value;
+  let mutexKey = req.swagger.params['mutexKey'].value;
+  let mutexHandle = req.swagger.params['mutexHandle'].value;
   Default.unlockMutex(mutexKey,mutexHandle)
     .then(function (response) {
-      utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
+    utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
     })
     .catch(function (response) {
       utils.writeJson(res, response);
@@ -31,12 +29,11 @@ module.exports.unlockMutex = function unlockMutex (req, res, next) {
 };
 
 module.exports.extendMutex = function extendMutex (req, res, next) {
-  var mutexKey = req.swagger.params['mutexKey'].value;
-  var mutexHandle = req.swagger.params['mutexHandle'].value;
-  var mutexttl = req.swagger.params['mutexttl'].value;
-  Default.extendMutex(mutexKey,mutexHandle,mutexttl)
+  let mutexKey = req.swagger.params['mutexKey'].value;
+  let mutexArg = req.swagger.params['mutexArg'].value;
+  Default.extendMutex(mutexKey,mutexArg)
     .then(function (response) {
-      utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
+    utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
     })
     .catch(function (response) {
       utils.writeJson(res, response);
@@ -44,14 +41,9 @@ module.exports.extendMutex = function extendMutex (req, res, next) {
 };
 
 module.exports.queryMutex = function queryMutex (req, res, next) {
-  var mutexKey = req.swagger.params['mutexKey'].value;
+  let mutexKey = req.swagger.params['mutexKey'].value;
   Default.queryMutex(mutexKey)
     .then(function (response) {
-      let msg=(response['statusCode']==200) ?
-        {
-          "id":response['msg'][0]['data']['id'],
-          "expiry":response['msg'][0]['data']['expiry'],
-        } : response['msg'];
       utils.writeJson(res, {"message":msg}, response['statusCode']);
     })
     .catch(function (response) {
@@ -64,9 +56,9 @@ module.exports.queryMutex = function queryMutex (req, res, next) {
 //SEMAPHORE
 
 module.exports.createSema = function createSema (req, res, next) {
-  var semaKey = req.swagger.params['semaKey'].value;
-  var semaArgs = req.swagger.params['semaArgs'].value;
-  Default.createSema(semaKey,semaArgs)
+  let semaKey = req.swagger.params['semaKey'].value;
+  let semaLockargs = req.swagger.params['semaLockargs'].value;
+  Default.createSema(semaKey,semaLockargs)
     .then(function (response) {
       utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
     })
@@ -76,9 +68,20 @@ module.exports.createSema = function createSema (req, res, next) {
 };
 
 module.exports.deleteSema = function deleteSema (req, res, next) {
-  var semaKey = req.swagger.params['semaKey'].value;
-  var semaHandle = req.swagger.params['semaHandle'].value;
-  Default.deleteSema(semaKey,semaHandle)
+  let semaKey = req.swagger.params['semaKey'].value;
+  Default.deleteSema(semaKey)
+    .then(function (response) {
+    utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
+    })
+    .catch(function (response) {
+      utils.writeJson(res, response);
+    });
+};
+
+module.exports.aquireSeat = function aquireSeat (req, res, next) {
+  let semaKey = req.swagger.params['semaKey'].value;
+  let semaSeatttl = req.swagger.params['semaSeatttl'].value;
+  Default.aquireSeat(semaKey,semaSeatttl)
     .then(function (response) {
       utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
     })
@@ -87,38 +90,24 @@ module.exports.deleteSema = function deleteSema (req, res, next) {
     });
 };
 
-module.exports.lockSema = function lockSema (req, res, next) {
-  var semaKey = req.swagger.params['semaKey'].value;
-  var semaHandle = req.swagger.params['semaHandle'].value;
-  var semattl = req.swagger.params['semattl'].value;
-  Default.lockSema(semaKey,semaHandle,semattl)
+module.exports.releaseSeat = function releaseSeat (req, res, next) {
+  let semaKey = req.swagger.params['semaKey'].value;
+  let SemaHandle = req.swagger.params['SemaHandle'].value;
+  Default.releaseSeat(semaKey,SemaHandle)
     .then(function (response) {
-      utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
+    utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
     })
     .catch(function (response) {
       utils.writeJson(res, response);
     });
 };
 
-module.exports.releaseSema = function releaseSema (req, res, next) {
-  var semaKey = req.swagger.params['semaKey'].value;
-  var semaHandle = req.swagger.params['semaHandle'].value;
-  Default.releaseSema(semaKey,semaHandle)
+module.exports.postponeSeat = function postponeSeat (req, res, next) {
+  let semaKey = req.swagger.params['semaKey'].value;
+  let semaSeatArgs = req.swagger.params['semaSeatArgs'].value;
+  Default.postponeSeat(semaKey,semaSeatArgs)
     .then(function (response) {
-      utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
-    })
-    .catch(function (response) {
-      utils.writeJson(res, response);
-    });
-};
-
-module.exports.extendSema = function extendSema (req, res, next) {
-  var semaKey = req.swagger.params['semaKey'].value;
-  var semaHandle = req.swagger.params['semaHandle'].value;
-  var semattl = req.swagger.params['semattl'].value;
-  Default.extendSema(semaKey,semaHandle,semattl)
-    .then(function (response) {
-      utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
+    utils.writeJson(res, {"message":response['msg']}, response['statusCode']);
     })
     .catch(function (response) {
       utils.writeJson(res, response);
@@ -126,15 +115,9 @@ module.exports.extendSema = function extendSema (req, res, next) {
 };
 
 module.exports.querySema = function querySema (req, res, next) {
-  var semaKey = req.swagger.params['semaKey'].value;
+  let semaKey = req.swagger.params['semaKey'].value;
   Default.querySema(semaKey)
     .then(function (response) {
-      let msg=(response['statusCode']==200) ?
-        {
-          "id":response['msg'][0]['data']['id'],
-          "expiry":response['msg'][0]['data']['expiry'],
-          "remain/maxCapacity": response['msg'][0]['data']['remainCapacity']+"/"+response['msg'][0]['data']['maxCapacity'],
-        } : response['msg'];
       utils.writeJson(res, {"message":msg}, response['statusCode']);
     })
     .catch(function (response) {
