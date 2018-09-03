@@ -1,24 +1,37 @@
-'use strict';
-
-var fs = require('fs'),
+let fs = require('fs'),
     path = require('path'),
     http = require('http');
 
-var app = require('connect')();
-var swaggerTools = require('swagger-tools');
-var jsyaml = require('js-yaml');
-var serverPort = 8080;
+let app = require('connect')();
+let swaggerTools = require('swagger-tools');
+let jsyaml = require('js-yaml');
+let serverPort = 8080;
 
 // swaggerRouter configuration
-var options = {
+let options = {
   swaggerUi: path.join(__dirname, '/swagger.json'),
   controllers: path.join(__dirname, './controllers'),
   useStubs: process.env.NODE_ENV === 'development' // Conditionally turn on stubs (mock mode)
 };
 
 // The Swagger document (require it, build it programmatically, fetch it from a URL, ...)
-var spec = fs.readFileSync(path.join(__dirname,'api/swagger.yaml'), 'utf8');
-var swaggerDoc = jsyaml.safeLoad(spec);
+let spec = fs.readFileSync(path.join(__dirname,'api/swagger.yaml'), 'utf8');
+let swaggerDoc = jsyaml.safeLoad(spec);
+
+// create the default table in dynamodb for initial
+let AWS=require('aws-sdk');
+// AWS.config.update({
+//   region: "ap-northeast-1",
+// });
+
+//TEST FOR LOCAL DYNAMODB TESTING
+AWS.config.update({
+  region: "us-west-2",
+  endpoint: "http://localhost:8000"
+});
+let dynamodb= new AWS.DynamoDB();
+let docClient= new AWS.DynamoDB.DocumentClient();
+
 
 // Initialize the Swagger middleware
 swaggerTools.initializeMiddleware(swaggerDoc, function (middleware) {
