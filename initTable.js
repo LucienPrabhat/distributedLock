@@ -78,8 +78,9 @@ function ResetInitTable(){
 };
 
 //create Table for INITIAL
+console.log('# initial tables ...')
 createTable('mutexLock',mutexParam);
-createTable('semaphoreLock',semaParam)
+createTable('semaphoreLock',semaParam);
 
 module.exports = {
     ResetInitTable

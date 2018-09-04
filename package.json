@@ -6,7 +6,6 @@
   "scripts": {
     "prestart": "npm install",
     "start": "node index.js",
-    "poststart": "node initTable.js",
     "test": "mocha"
   },
   "keywords": [

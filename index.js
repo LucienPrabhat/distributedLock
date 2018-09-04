@@ -18,6 +18,9 @@ let options = {
 let spec = fs.readFileSync(path.join(__dirname,'api/swagger.yaml'), 'utf8');
 let swaggerDoc = jsyaml.safeLoad(spec);
 
+// Initial the table
+require('./initTable.js');
+
 // Initialize the Swagger middleware
 swaggerTools.initializeMiddleware(swaggerDoc, function (middleware) {
 
