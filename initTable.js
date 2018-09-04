@@ -17,27 +17,25 @@ let semaParam = {
     TableName : 'semaphoreLock',
     KeySchema: [ 
         { AttributeName: 'id', KeyType: "HASH"},
+        { AttributeName: 'handle', KeyType: "RANGE"},
     ],
     AttributeDefinitions: [
         { AttributeName: 'id', AttributeType: "S" },
+        { AttributeName: 'handle', KeyType: "S"},
         { AttributeName: 'expiry', AttributeType: "N" },
     ],
     ProvisionedThroughput: {
         ReadCapacityUnits: 10, WriteCapacityUnits: 10
     },
-    GlobalSecondaryIndexes: [
+    LocalSecondaryIndexes: [
         {
           IndexName: 'secondary',
-          KeySchema: [
-            { AttributeName: 'id', KeyType: "HASH"},
+          KeySchema: [ 
+            { AttributeName: 'id', KeyType: "HASH" },
             { AttributeName: 'expiry', KeyType: "RANGE" },
           ],
           Projection: {
-            ProjectionType: "ALL"
-          },
-          ProvisionedThroughput: {
-            ReadCapacityUnits: 10,
-            WriteCapacityUnits: 10
+            ProjectionType: "ALL",
           }
         },
     ],

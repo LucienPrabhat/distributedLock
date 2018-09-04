@@ -283,10 +283,14 @@ definitions:
       seatVaild:
         type: "integer"
         format: "int64"
+      handle:
+        type: "string"
+        pattern: "^[a-zA-Z0-9\\-_]+$"
     example:
       id: "exampleKey"
       seatTotal: 35
       seatVaild: 30
+      handle: "ewfqewf-234rf3-23dwe-2"
   semaphoreSeat:
     type: "object"
     required:
