@@ -108,6 +108,8 @@ paths:
           description: "invaild request"
         409:
           description: "out of space"
+        404:
+          description: "semaphore not cteate"
       x-swagger-router-controller: "Default"
     delete:
       summary: "Release(-1) space from semaphore"
