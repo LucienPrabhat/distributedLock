@@ -69,7 +69,8 @@ function deleTable(table_Name){
 }
 
 function ResetInitTable(){
-    deleTable('mutexLock').then(()=> deleTable('semaphoreLock'))
+    deleTable('mutexLock')
+    .then(()=>{ return deleTable('semaphoreLock') })
     .then(()=>{
         createTable('mutexLock',mutexParam);
         createTable('semaphoreLock',semaParam);
