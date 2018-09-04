@@ -1,130 +1,111 @@
 let db=require("../config/config.js");
-// let AWS=require('aws-sdk');
-
-// AWS.config.update({
-//   region: "ap-northeast-1",
-// });
-
-//TEST FOR LOCAL DYNAMODB TESTING
-// AWS.config.update({
-//   region: "us-west-2",
-//   endpoint: "http://localhost:8000"
-// });
-
-// let dynamodb= new AWS.DynamoDB();
-// let docClient= new AWS.DynamoDB.DocumentClient();
-//<<some exe in the bottom>>//
-
-//=============================================================================
 
 
-exports.creaLoc=function(tb,keyVal,key2Val){
-    let params={
+exports.creaLoc=function(tb,items){
+
+    let param={};
+    param.mutexLock = {
         TableName: tb,
-        Item:{
-            'id': keyVal,
-            'data': key2Val,
-        },
-        ConditionExpression:"attribute_not_exists(#da) OR #da.#ex<:tm",
+        Item: items,
+        ConditionExpression:"attribute_not_exists(#ex) OR #ex<:tm",
         ExpressionAttributeNames:{
-            "#da":'data',
             "#ex":'expiry',
         },
         ExpressionAttributeValues: {
             ":tm": Date.now(),
         }
     };
-    //condition > without key 'data'(conflict)
-    return new Promise((resolve,reject)=>{
-        db.docClient.put(params, function(err, data) {
-            if (err) {
-                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
-                    console.log('#409,lock conflict or in use.');
-                    resolve({'statusCode':409,'msg':'lock conflict/in use or invaild request'});
-                }else{
-                    console.error("!! CreateLoc Error:", err["code"]);
-                    resolve({'statusCode':400,'msg':"invaild request"});
-                }
-            } else {
-                //dynamo callback data return {}(empty)
-                console.log("#Create Lock succeed.");
-                resolve({'statusCode':200,'msg':key2Val});
+    param.semaphoreLock = {
+        TableName: tb,
+        Item: items,
+        ConditionExpression:"attribute_not_exists(#hd) AND attribute_not_exists(#st) AND attribute_not_exists(#sv)",
+        ExpressionAttributeNames:{
+            "#st":'seatTotal',
+            "#sv":'seatVaild',
+            "#hd":'handle',
+        }
+    };
+
+    return db.docClient.put(param[tb]).promise()
+        .then(data=>{
+            console.log(`#Create ${tb} succeed.`);
+            return {'statusCode':200,'msg':items};
+        })
+        .catch(err=>{
+            if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+                console.log(`#409, ${tb} conflict`);
+                return {'statusCode':409,'msg':'conflict / lock in use'}
             }
-        });
-    });
+            console.error(`!! Create ${tb} Error:`, err["code"]);
+            return {'statusCode':400,'msg':"invaild request"}
+        })
 }
 
 exports.deleLoc=function(tb,idVal,checkHandle){
-    let params={
+
+    let keyType={};
+    keyType.semaphoreLock= { 'id': idVal, 'handle': checkHandle };
+    keyType.mutexLock= { 'id': idVal };
+
+    let param = {
         TableName: tb,
-        Key:{ 'id': idVal },
-        ConditionExpression:"#da.#ke=:k AND #da.#hd=:h",
+        Key: keyType[tb],
+        ConditionExpression: "#ke=:k AND #hd=:h",
         ExpressionAttributeNames:{
             "#ke": 'id',
-            "#da":'data',
             "#hd":'handle',
         },
-        ExpressionAttributeValues: {
+        ExpressionAttributeValues:{
             ":k": idVal,
             ":h": checkHandle,
         }
     };
-    //condition > key and handle correctspond
-    return new Promise((resolve,reject)=>{
-        db.docClient.delete(params, function(err, data) {
-            if (err) {
-                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
-                    console.log('#400,lock not exist or invaild request');
-                    resolve({'statusCode':400,'msg':'error or invaild request'});
-                }else{
-                    console.error("!! DeleteLoc Error:", err["code"]);
-                    resolve({'statusCode':400,'msg':"invaild request"});
-                }
-            } else {
-                //dynamo callback data return {}(empty)
-                console.log("#Delete Lock succeeded.");
-                resolve({'statusCode':200,'msg':"delete Lock success"});
+
+    let msgHandle={};
+    msgHandle.semaphoreLock="Release seat from";
+    msgHandle.mutexLock="Delete";
+
+    return db.docClient.delete(param).promise()
+        .then(data=>{
+            console.log(`#${msgHandle[tb]} ${tb} succeeded.`);
+            return {'statusCode':200,'msg':`${msgHandle[tb]} ${tb} success`}
+        })
+        .catch(err=>{
+            if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+                console.log(`#401, ${tb} not found or incorrect request`);
+                return {'statusCode':401,'msg':`${tb} not found or incorrect request`}
             }
-        });
-    });
+            console.error("!! DeleteLoc Error:", err["code"]);
+            return {'statusCode':400,'msg':"invaild request"}
+        })
+
 }
 
 exports.querLoc=function(lockType,tableName,keyValue){
+
     let params = {
         TableName : tableName,
-        KeyConditionExpression: "#k = :vvvv",
-        ExpressionAttributeNames:{
-            "#k": 'id'
-        },
-        ExpressionAttributeValues: {
-            ":vvvv": keyValue
+        KeyConditionExpression: "#k = :kv",
+        ExpressionAttributeNames:{ "#k": 'id' },
+        ExpressionAttributeValues: { ":kv": keyValue }
+    };
+
+    return db.docClient.query(params).promise()
+    .then(data=>{
+        console.log(`#Query ${lockType} succeeded. Find: ${data['Count']} item`);
+        if(data['Count']==0 && data['Items']==""){
+            return {'statusCode':404,'msg':"lock not found"}
         }
-    };
-    let mutexMsg={   
-        "id":data['Item'][0]['data']['id'],
-        "expiry":data['Item'][0]['data']['expiry'],
-    };
-    let semaMsg={   
-        "id":data['Item'][0]['data']['id'],
-        "seatTotal":data['Item'][0]['data']['seatTotal'],
-        "seatVaild":data['Item'][0]['data']['seatVaild'],
-    };
-    let message = (lockType === "mutex") ? mutexMsg : semaMsg;
-    return new Promise((resolve,reject)=>{
-        db.docClient.query(params, function(err, data) {
-            if (err) {
-                console.error("!! QueryLoc Error:", err["code"]);
-                resolve({'statusCode':400,'msg':"invaild request"});
-            } else {
-                console.log("#Query succeeded. Find:",data['Count'],'item');
-                if(data['Count']==0 && data['Items']==""){
-                    resolve({'statusCode':404,'msg':"lock not exist"});
-                }else{
-                    resolve({'statusCode':200,'msg':message});
-                }
-            }
-        });
-    });
+
+        let message= data.Items[0];
+        if(lockType === "mutex") delete message.handle ;
+        return {'statusCode':200,'msg': message}
+    })
+    .catch(err=>{
+        console.error("!! QueryLoc Error:", err);
+        return {'statusCode':400,'msg':"invaild request"}
+    })
+
 }
 
 exports.updatSemaCount=function(idVal,checkHandle,countOper,ttl){
@@ -182,44 +163,43 @@ exports.updatSemaCount=function(idVal,checkHandle,countOper,ttl){
     });
 }
 
-exports.heartBeat=function(tableName,idVal,checkHandle,delayTime){
-    let delay_time=(delayTime>0 && delayTime<=3600) ? delayTime : 60;
-    delay_time*=1000;
+exports.heartBeat=function(tableName,idVal,handle,ttl){
 
+    let keyType={};
+    keyType.semaphoreLock= { 'id': idVal, 'handle': handle };
+    keyType.mutexLock= { 'id': idVal };
     let params={
         TableName: tableName,
-        Key:{ 'id': idVal},
-        UpdateExpression: "set #da.#ep = #da.#ep+:d",
-        ConditionExpression: "#da.#ke=:k AND #da.#hd=:h",
+        Key: keyType[tableName],
+        UpdateExpression: "set #ep = #ep+:d",
+        ConditionExpression: "#ke=:k AND #hd=:h",
         ExpressionAttributeNames:{
-            "#da":'data',
             "#ke":'id',
             "#hd":'handle',
             "#ep":"expiry",
         },
         ExpressionAttributeValues:{
             ":k":idVal,
-            ":h":checkHandle,
-            ":d":delay_time,
+            ":h":handle,
+            ":d":ttl*1000,
         },
         ReturnValues:"UPDATED_NEW"
     };
 
-    return new Promise((resolve,reject)=>{
-        db.docClient.update(params, function(err, data) {
-            if (err) {
-                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
-                    console.log('#400,lock not exist or invaild request');
-                    resolve({'statusCode':400,'msg':'error or invaild request'});
-                }else{
-                    console.error("!! DeleteLoc Error:", err["code"]);
-                    resolve({'statusCode':400,'msg':"invaild request"});
-                }
-            } else {
-                console.log("#UpdatSemaTime succeeded.");
-                resolve({'statusCode':200,'msg':data['Attributes']['data']});
-            }
-        });
-    });
+    return db.docClient.update(params).promise()
+    .then(data=>{
+        console.log(`# ${tableName} extend ttl succeeded.`);
+        return {'statusCode':200,'msg':data['Attributes']}
+    })
+    .catch(err=>{
+        if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+            console.log('#400,lock not exist or invaild request');
+            return {'statusCode':400,'msg':'error or invaild request'}
+        }else{
+            console.error(`!! Extend ${tableName} Error:`, err["code"]);
+            return {'statusCode':400,'msg':"invaild request"}
+        }
+    })
+
 }
 
