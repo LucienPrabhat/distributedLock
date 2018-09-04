@@ -21,7 +21,7 @@ let semaParam = {
     ],
     AttributeDefinitions: [
         { AttributeName: 'id', AttributeType: "S" },
-        { AttributeName: 'handle', KeyType: "S"},
+        { AttributeName: 'handle', AttributeType: "S"},
         { AttributeName: 'expiry', AttributeType: "N" },
     ],
     ProvisionedThroughput: {
