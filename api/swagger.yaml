@@ -303,10 +303,10 @@ definitions:
       id: "exampleKey"
       seatTotal: 35
       seatVaild: 30
-      seat: {
+      seat: [{
         handle: "jkl49j-rfl39fev-3fdwff",
         expiry: 335689356
-      }
+      },]
   semaphoreSeat:
     type: "object"
     required:
