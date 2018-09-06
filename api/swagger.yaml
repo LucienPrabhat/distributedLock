@@ -285,14 +285,28 @@ definitions:
       seatVaild:
         type: "integer"
         format: "int64"
-      handle:
-        type: "string"
-        pattern: "^[a-zA-Z0-9\\-_]+$"
+      seat:
+        type: "array"
+        items:
+          type: "object"
+          required: 
+          - "handle"
+          - "expiry"
+          properties:
+            handle:
+              type: "string"
+              pattern: "^[a-zA-Z0-9\\-_]+$"
+            expiry:
+              type: "integer"
+              format: "int64"
     example:
       id: "exampleKey"
       seatTotal: 35
       seatVaild: 30
-      handle: "ewfqewf-234rf3-23dwe-2"
+      seat: {
+        handle: "jkl49j-rfl39fev-3fdwff",
+        expiry: 335689356
+      }
   semaphoreSeat:
     type: "object"
     required:

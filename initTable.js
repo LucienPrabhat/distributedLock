@@ -1,65 +1,36 @@
 let aws=require("./config/config.js");
 
-//PARAMS
-let mutexParam = {
-    TableName : 'mutexLock',
-    KeySchema: [ 
-        { AttributeName: 'id', KeyType: "HASH"}
-    ],
-    AttributeDefinitions: [
-        { AttributeName: 'id', AttributeType: "S" }
-    ],
-    ProvisionedThroughput: {
-        ReadCapacityUnits: 10, WriteCapacityUnits: 10
-    }
-};
-let semaParam = {
-    TableName : 'semaphoreLock',
-    KeySchema: [ 
-        { AttributeName: 'id', KeyType: "HASH"},
-        { AttributeName: 'handle', KeyType: "RANGE"},
-    ],
-    AttributeDefinitions: [
-        { AttributeName: 'id', AttributeType: "S" },
-        { AttributeName: 'handle', AttributeType: "S"},
-        { AttributeName: 'expiry', AttributeType: "N" },
-    ],
-    ProvisionedThroughput: {
-        ReadCapacityUnits: 10, WriteCapacityUnits: 10
-    },
-    LocalSecondaryIndexes: [
-        {
-          IndexName: 'secondary',
-          KeySchema: [ 
-            { AttributeName: 'id', KeyType: "HASH" },
-            { AttributeName: 'expiry', KeyType: "RANGE" },
-          ],
-          Projection: {
-            ProjectionType: "ALL",
-          }
-        },
-    ],
-};
 
 // FUNCTIONS
-function createTable(table_Name,params){
-    return aws.dynamodb.createTable(params).promise()
+function createTable(table_Name){
+
+    let param = {
+        TableName : table_Name,
+        KeySchema: [ 
+            { AttributeName: 'id', KeyType: "HASH"},
+        ],
+        AttributeDefinitions: [
+            { AttributeName: 'id', AttributeType: "S" },
+        ],
+        ProvisionedThroughput: {
+            ReadCapacityUnits: 10, WriteCapacityUnits: 10
+        },
+    };
+
+    return aws.dynamodb.createTable(param).promise()
             .then(data => console.log("#Table Created:",table_Name) )
             .catch(err =>{
                 if(err['statusCode']==400 && err['code']=='ResourceInUseException'){
-                    return console.log('#table existed, skip...');
+                    return console.log(`#${table_Name} table existed, skip...`);
                 }
                 console.error("!! CreateTable Error:", err["code"]);
             })
 }
 
 function deleTable(table_Name){
-    let tableName=table_Name;
-    let params = {
-        TableName : tableName
-    };
+    let params = { TableName : table_Name };
     return aws.dynamodb.deleteTable(params).promise()
-            .then(data => console.log("#Table Deleted:",tableName) )
+            .then(data => console.log("#Table Deleted:",tableNtable_Nameame) )
             .catch(err => {
             if(err['statusCode']==400 && err['code']=='ResourceNotFoundException'){
                 return console.log('#200,table NOT exist,skip...');
@@ -72,15 +43,15 @@ function ResetInitTable(){
     deleTable('mutexLock')
     .then(()=>{ return deleTable('semaphoreLock') })
     .then(()=>{
-        createTable('mutexLock',mutexParam);
-        createTable('semaphoreLock',semaParam);
+        createTable('mutexLock');
+        createTable('semaphoreLock');
     })
 };
 
 //create Table for INITIAL
 console.log('# initial tables ...')
-createTable('mutexLock',mutexParam);
-createTable('semaphoreLock',semaParam);
+createTable('mutexLock');
+createTable('semaphoreLock');
 
 module.exports = {
     ResetInitTable
