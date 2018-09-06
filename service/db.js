@@ -1,7 +1,8 @@
 let db=require("../config/config.js");
+const uuidv4 = require('uuid/v4');
 
 
-exports.creaLoc=function(tb,items){
+function creaLoc(tb,items){
 
     let param={};
     param.mutexLock = {
@@ -18,11 +19,10 @@ exports.creaLoc=function(tb,items){
     param.semaphoreLock = {
         TableName: tb,
         Item: items,
-        ConditionExpression:"attribute_not_exists(#hd) AND attribute_not_exists(#st) AND attribute_not_exists(#sv)",
+        ConditionExpression:"attribute_not_exists(#st) AND attribute_not_exists(#sv)",
         ExpressionAttributeNames:{
             "#st":'seatTotal',
             "#sv":'seatVaild',
-            "#hd":'handle',
         }
     };
 
@@ -41,15 +41,25 @@ exports.creaLoc=function(tb,items){
         })
 }
 
-exports.deleLoc=function(tb,idVal,checkHandle){
+function deleLoc(tb,idVal,checkHandle){
 
-    let keyType={};
-    keyType.semaphoreLock= { 'id': idVal, 'handle': checkHandle };
-    keyType.mutexLock= { 'id': idVal };
-
-    let param = {
+    let param={};
+    param.semaphoreLock = {
         TableName: tb,
-        Key: keyType[tb],
+        Key: { 'id': idVal },
+        ConditionExpression: "#ke=:k AND #st=:n",
+        ExpressionAttributeNames:{
+            "#ke": 'id',
+            "#st": 'seat',
+        },
+        ExpressionAttributeValues:{
+            ":k": idVal,
+            ":n": "",
+        }
+    };
+    param.mutexLock = {
+        TableName: tb,
+        Key: { 'id': idVal },
         ConditionExpression: "#ke=:k AND #hd=:h",
         ExpressionAttributeNames:{
             "#ke": 'id',
@@ -61,14 +71,10 @@ exports.deleLoc=function(tb,idVal,checkHandle){
         }
     };
 
-    let msgHandle={};
-    msgHandle.semaphoreLock="Release seat from";
-    msgHandle.mutexLock="Delete";
-
-    return db.docClient.delete(param).promise()
+    return db.docClient.delete(param[tb]).promise()
         .then(data=>{
-            console.log(`#${msgHandle[tb]} ${tb} succeeded.`);
-            return {'statusCode':200,'msg':`${msgHandle[tb]} ${tb} success`}
+            console.log(`#Delete ${tb} succeeded.`);
+            return {'statusCode':200,'msg':`Delete ${tb} success`}
         })
         .catch(err=>{
             if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
@@ -81,10 +87,10 @@ exports.deleLoc=function(tb,idVal,checkHandle){
 
 }
 
-exports.querLoc=function(lockType,tableName,keyValue){
+function querLoc(lockType,keyValue){
 
     let params = {
-        TableName : tableName,
+        TableName : lockType,
         KeyConditionExpression: "#k = :kv",
         ExpressionAttributeNames:{ "#k": 'id' },
         ExpressionAttributeValues: { ":kv": keyValue }
@@ -92,14 +98,12 @@ exports.querLoc=function(lockType,tableName,keyValue){
 
     return db.docClient.query(params).promise()
     .then(data=>{
-        console.log(`#Query ${lockType} succeeded. Find: ${data['Count']} item`);
-        if(data['Count']==0 && data['Items']==""){
-            return {'statusCode':404,'msg':"lock not found"}
-        }
-
-        let message= data.Items[0];
-        if(lockType === "mutex") delete message.handle ;
-        return {'statusCode':200,'msg': message}
+        let message= data.Items;
+        let count=data.Count;
+        console.log(`#Query ${lockType} succeeded. Find: ${count} item`);
+        if(count==0 && message=="") return {'statusCode':404,'msg':"lock not found"}
+        if(lockType === "mutexLock") delete message[0].handle ;
+        return {'statusCode':200,'msg': message[0]}
     })
     .catch(err=>{
         console.error("!! QueryLoc Error:", err);
@@ -108,69 +112,135 @@ exports.querLoc=function(lockType,tableName,keyValue){
 
 }
 
-exports.updatSemaCount=function(idVal,checkHandle,countOper,ttl){
-    let oper=countOper>0 ? true : false;
-    if(countOper>1) countOper=1;
-    if(countOper<-1) countOper=-1;
+function sitOrLeave(idVal,countOper,handle,expiry){
 
-    let beat=(ttl>0 && ttl<=60 ) ? ttl : 60;
-    beat*=1000;
+    let option={};
+    option.ConditionExpression={
+        "-1":"#ke=:k AND #st>#sv AND #sv>=:z AND attribute_exists(#s.#hd)",
+        "1":"#ke=:k AND #st>=#sv AND #sv>:z AND attribute_not_exists(#s.#hd)",
+    }
+    option.UpdateExpression={
+        "-1":"set #sv= #sv+:c ,#s.#hd= :e",
+        "1":"set #sv= #sv+:c ,#s.#hd= :e",
+    }
 
-    //condition > add/release 1 each time , remain/count<max
     let params={
-        TableName: 'SemaTB',
-        Key:{ 'id': idVal},
-        UpdateExpression: "set #da.#ex= #da.#ex+:d , #da.#cn = #da.#cn+:c , #da.#rc = #da.#rc-:c" ,
-        ConditionExpression: "#da.#cn>=:z AND #da.#rc >= :c AND #da.#ke=:k AND #da.#hd=:h",
+        TableName: 'semaphoreLock',
+        Key:{ 'id': idVal },
+        UpdateExpression: option.UpdateExpression[countOper] ,
+        ConditionExpression: option.ConditionExpression[countOper],
         ExpressionAttributeNames:{
-            "#da":'data',
             "#ke":'id',
-            "#hd":'handle',
-            "#ex":'expiry',
-            "#cn":'countInuse',
-            "#rc":'remainCapacity',
+            "#st":'seatTotal',
+            "#sv":'seatVaild',
+            "#s":'seat',
+            "#hd":handle,
         },
         ExpressionAttributeValues:{
             ":k":idVal,
-            ":h":checkHandle,
-            ":d":beat,
-            ":c":countOper,
-            ":z":-countOper,
+            ":c":-countOper,
+            ":z":0,
+            ":e":expiry,
         },
         ReturnValues:"UPDATED_NEW"
     };
 
-    return new Promise((resolve,reject)=>{
-        db.docClient.update(params, function(err, data) {
-            if (err) {
-                if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
-                    if(oper){
-                        console.log('#409,out of lock maxCapacity / not been created or invaild request / or Wrong handle');
-                        resolve({'statusCode':409,'msg':'out of lock maxCapacity / lock not been created or invaild request / or Wrong handle'});
-                    }else{
-                        console.log('#409,lock released on maxCapacity / or Wrong handle');
-                        resolve({'statusCode':409,'msg':'lock released on maxCapacity or Wrong handle'});
-                    }
-                }else{
-                    console.error("!! UpdatSemaCount Error:", err['code']);
-                    resolve({'statusCode':400,'msg':"invaild request"});
-                }
-            } else {
-                console.log("#UpdatSemaCount succeeded.");
-                resolve({'statusCode':200,'msg':data['Attributes']['data']});
-            }
-        });
-    });
+    let msgHandle={
+        '-1':'Release',
+        '1':'Aquire',
+    }
+    let resErrorHandle={
+        '-1':'key or handle not exist',
+        '1':'key not found or seat has reached the maximun',
+    }
+
+    return db.docClient.update(params).promise()
+    .then(data=>{
+        console.log(`#${msgHandle[countOper]} seat succeeded.`);
+            return {'statusCode':200,'msg':data['Attributes']}
+    }).catch(err=>{
+        if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
+            console.log(`#401, ${resErrorHandle[countOper]}`);
+            return {'statusCode':401,'msg':resErrorHandle[countOper]};
+        }
+        console.error("!! UpdatSemaCount Error:", err);
+        return {'statusCode':400,'msg':"invaild request"}
+    })
+
 }
 
-exports.heartBeat=function(tableName,idVal,handle,ttl){
+function clearSeat(semaphoreData){
+    let obj=semaphoreData;
+    let expireCount =0;
 
-    let keyType={};
-    keyType.semaphoreLock= { 'id': idVal, 'handle': handle };
-    keyType.mutexLock= { 'id': idVal };
+    for(let key in obj.seat){
+        let exp= obj.seat.key;
+        if(exp < Date.now()){
+            console.log(`Clear expire key: ${key} on ${exp}`)
+            delete exp
+            if(exp!=0) expireCount++
+        }
+    }
+    if(expireCount==0){
+        console.log(`#409,seat has reached the maximun`);
+        return {'statusCode':409,'msg':'seat has reached the maximun'}
+    }
+    obj.seat[uuidv4()]=Date.now();
+    return _aquireOnce(obj,expireCount);
+
+}
+
+function _aquireOnce(obj,expireCount){
     let params={
+        TableName: 'semaphoreLock',
+        Key:{ 'id': obj.id },
+        UpdateExpression: "set #sv=#sv+:c ,#st=:s" ,
+        ConditionExpression: "#ke=:k",
+        ExpressionAttributeNames:{
+            "#ke":'id',
+            "#sv":'seatVaild',
+            "#st":'seat',
+        },
+        ExpressionAttributeValues:{
+            ":k":obj.id,
+            ":c":expireCount-1,
+            ":s":obj.seat,
+        },
+        ReturnValues:"UPDATED_NEW"
+    };
+
+    return db.docClient.update(params).promise()
+    .then(data=>{
+        console.log(`#Aquire seat succeeded.`);
+            return {'statusCode':200,'msg':data['Attributes']}
+    }).catch(err=>{
+        console.error("!! UpdatSemaCount Error:", err['code']);
+        return {'statusCode':400,'msg':"invaild request"}
+    })
+}
+
+function heartBeat(tableName,idVal,handle,ttl){
+
+    let params={};
+    params.semaphoreLock={
         TableName: tableName,
-        Key: keyType[tableName],
+        Key: { 'id': idVal },
+        UpdateExpression: "set #st.#hd = #st.#hd+:d",
+        ConditionExpression: "#ke=:k AND attribute_exists(#st.#hd)",
+        ExpressionAttributeNames:{
+            "#ke":'id',
+            "#hd":handle,
+            "#st":"seat",
+        },
+        ExpressionAttributeValues:{
+            ":k":idVal,
+            ":d":ttl*1000,
+        },
+        ReturnValues:"UPDATED_NEW"
+    };
+    params.mutexLock={
+        TableName: tableName,
+        Key: { 'id': idVal },
         UpdateExpression: "set #ep = #ep+:d",
         ConditionExpression: "#ke=:k AND #hd=:h",
         ExpressionAttributeNames:{
@@ -186,15 +256,15 @@ exports.heartBeat=function(tableName,idVal,handle,ttl){
         ReturnValues:"UPDATED_NEW"
     };
 
-    return db.docClient.update(params).promise()
+    return db.docClient.update(params[tableName]).promise()
     .then(data=>{
         console.log(`# ${tableName} extend ttl succeeded.`);
         return {'statusCode':200,'msg':data['Attributes']}
     })
     .catch(err=>{
         if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
-            console.log('#400,lock not exist or invaild request');
-            return {'statusCode':400,'msg':'error or invaild request'}
+            console.log(`#401,${tableName} not exist or invaild request`);
+            return {'statusCode':401,'msg':'error or invaild request'}
         }else{
             console.error(`!! Extend ${tableName} Error:`, err["code"]);
             return {'statusCode':400,'msg':"invaild request"}
@@ -203,3 +273,12 @@ exports.heartBeat=function(tableName,idVal,handle,ttl){
 
 }
 
+
+module.exports={
+    creaLoc,
+    deleLoc,
+    querLoc,
+    sitOrLeave,
+    clearSeat,
+    heartBeat,
+}

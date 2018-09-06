@@ -21,7 +21,7 @@ function extendMutex(mutexKey,mutexArg) {
 }
 //Query mutex status
 function queryMutex(mutexKey) {
-  return DB.querLoc('mutex','mutexLock',mutexKey);
+  return DB.querLoc('mutexLock',mutexKey);
 }
 
 //SEMAPHORE
@@ -29,9 +29,11 @@ function queryMutex(mutexKey) {
 function createSema(semaKey,semaLockargs) {
   let obj = {
       "id" : semaKey,
-      "handle" : "DEFAULT",
       "seatTotal" : semaLockargs.seats,
       "seatVaild" : semaLockargs.seats,
+      "seat": {
+        "DefaultHandle" : 0,
+      }
   };
   return DB.creaLoc('semaphoreLock',obj);
 }
@@ -41,11 +43,24 @@ function deleteSema(semaKey) {
 }
 //Acquire(+1) seat from semaphore
 function aquireSeat(semaKey,semaSeatttl) {
-  return DB.updatSemaCount(semaKey,uuidv4(),1,semaSeatttl.ttl);//under reconstruction
+
+  let checkKeyNonexistOrFull = DB.querLoc('semaphoreLock',semaKey).then(data=>{
+    console.log('checking key not found or full');
+    if(data.statusCode===200) return DB.clearSeat(data.msg)//409,200
+    return data;//400,404
+  })
+
+  return DB.sitOrLeave(semaKey,1,uuidv4(),Date.now()+(semaSeatttl.ttl*1000))
+  .then(data=>{ return data })
+  .catch(err=>{
+    if(data.statusCode===400) return err; //400
+    return checkKeyNonexistOrFull;//401 => 404,409
+  });
+
 }
 //Release(-1) seat from semaphore
 function releaseSeat(semaKey,semaHandle) {
-  return DB.deleLoc('semaphoreLock',semaKey,semaHandle.handle);
+  return DB.sitOrLeave(semaKey,-1,semaHandle.handle,0);
 }
 //Update seat expiry(ttl)
 function postponeSeat(semaKey,semaSeatArgs) {
@@ -53,7 +68,7 @@ function postponeSeat(semaKey,semaSeatArgs) {
 }
 //Query semaphore status
 function querySema(semaKey) {
-  return DB.querLoc('semaphore','semaphoreLock',semaKey);
+  return DB.querLoc('semaphoreLock',semaKey);
 }
 
 module.exports = {

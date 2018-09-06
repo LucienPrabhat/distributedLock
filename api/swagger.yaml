@@ -286,27 +286,22 @@ definitions:
         type: "integer"
         format: "int64"
       seat:
-        type: "array"
-        items:
-          type: "object"
-          required: 
-          - "handle"
-          - "expiry"
-          properties:
-            handle:
-              type: "string"
-              pattern: "^[a-zA-Z0-9\\-_]+$"
-            expiry:
-              type: "integer"
-              format: "int64"
+        type: "object"
+        properties:
+          handle:
+            type: "string"
+            pattern: "^[a-zA-Z0-9\\-_]+$"
+          expiry:
+            type: "integer"
+            format: "int64"
     example:
       id: "exampleKey"
       seatTotal: 35
-      seatVaild: 30
-      seat: [{
-        handle: "jkl49j-rfl39fev-3fdwff",
-        expiry: 335689356
-      },]
+      seatVaild: 33
+      seat: {
+        "ery96s-sfsf887-wefwf": 2697690802,
+        "efrnlw-l4o879v-smlfi": 4389730923,
+      }
   semaphoreSeat:
     type: "object"
     required:
