@@ -44,18 +44,19 @@ function deleteSema(semaKey) {
 //Acquire(+1) seat from semaphore
 function aquireSeat(semaKey,semaSeatttl) {
 
-  let checkKeyNonexistOrFull = DB.querLoc('semaphoreLock',semaKey).then(data=>{
-    console.log('checking key not found or full');
-    if(data.statusCode===200) return DB.clearSeat(data.msg)//409,200
-    return data;//400,404
-  })
+  let handle= uuidv4()
+  let expiry= Date.now()+(semaSeatttl.ttl*1000);
 
-  return DB.sitOrLeave(semaKey,1,uuidv4(),Date.now()+(semaSeatttl.ttl*1000))
-  .then(data=>{ return data })
-  .catch(err=>{
-    if(data.statusCode===400) return err; //400
-    return checkKeyNonexistOrFull;//401 => 404,409
-  });
+  let checkKeyNonexistOrFull= ()=>{ return DB.querLoc('semaphoreLock',semaKey).then(data=>{
+      console.log('checking key not found or full');
+      if(data.statusCode===200) return DB.clearSeat(data.msg,handle,expiry)//409,200
+      return data;//400,404
+    })
+  }
+  return DB.sitOrLeave(semaKey,1,handle,expiry).then(data=>{
+    if(data.statusCode===401) return checkKeyNonexistOrFull();//401 => 404,409
+    return data;//200,400
+  })
 
 }
 //Release(-1) seat from semaphore

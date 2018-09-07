@@ -1,5 +1,4 @@
 let db=require("../config/config.js");
-const uuidv4 = require('uuid/v4');
 
 
 function creaLoc(tb,items){
@@ -47,14 +46,14 @@ function deleLoc(tb,idVal,checkHandle){
     param.semaphoreLock = {
         TableName: tb,
         Key: { 'id': idVal },
-        ConditionExpression: "#ke=:k AND #st=:n",
+        ConditionExpression: "#ke=:k AND #sv=#st",
         ExpressionAttributeNames:{
             "#ke": 'id',
-            "#st": 'seat',
+            "#st": 'seatTotal',
+            "#sv": 'seatVaild',
         },
         ExpressionAttributeValues:{
             ":k": idVal,
-            ":n": "",
         }
     };
     param.mutexLock = {
@@ -70,6 +69,10 @@ function deleLoc(tb,idVal,checkHandle){
             ":h": checkHandle,
         }
     };
+    let msgHandle={
+        "semaphoreLock": "not found or seats is not empty",
+        "mutexLock": "not found or incorrect request",
+    }
 
     return db.docClient.delete(param[tb]).promise()
         .then(data=>{
@@ -78,8 +81,8 @@ function deleLoc(tb,idVal,checkHandle){
         })
         .catch(err=>{
             if(err['statusCode']==400 && err['code']=='ConditionalCheckFailedException'){
-                console.log(`#401, ${tb} not found or incorrect request`);
-                return {'statusCode':401,'msg':`${tb} not found or incorrect request`}
+                console.log(`#401, ${tb} ${msgHandle[tb]}`);
+                return {'statusCode':401,'msg':`${tb} ${msgHandle[tb]}`}
             }
             console.error("!! DeleteLoc Error:", err["code"]);
             return {'statusCode':400,'msg':"invaild request"}
@@ -116,7 +119,7 @@ function sitOrLeave(idVal,countOper,handle,expiry){
 
     let option={};
     option.ConditionExpression={
-        "-1":"#ke=:k AND #st>#sv AND #sv>=:z AND attribute_exists(#s.#hd)",
+        "-1":"#ke=:k AND #st>#sv AND #sv>=:z AND NOT #s.#hd=:z",
         "1":"#ke=:k AND #st>=#sv AND #sv>:z AND attribute_not_exists(#s.#hd)",
     }
     option.UpdateExpression={
@@ -169,15 +172,15 @@ function sitOrLeave(idVal,countOper,handle,expiry){
 
 }
 
-function clearSeat(semaphoreData){
+function clearSeat(semaphoreData,handle,expiry){
     let obj=semaphoreData;
     let expireCount =0;
 
     for(let key in obj.seat){
-        let exp= obj.seat.key;
+        let exp= obj.seat[key];
         if(exp < Date.now()){
             console.log(`Clear expire key: ${key} on ${exp}`)
-            delete exp
+            delete obj.seat[key]
             if(exp!=0) expireCount++
         }
     }
@@ -185,7 +188,7 @@ function clearSeat(semaphoreData){
         console.log(`#409,seat has reached the maximun`);
         return {'statusCode':409,'msg':'seat has reached the maximun'}
     }
-    obj.seat[uuidv4()]=Date.now();
+    obj.seat[handle]=expiry;
     return _aquireOnce(obj,expireCount);
 
 }
