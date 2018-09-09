@@ -1,0 +1,12 @@
+{
+    "dev":{
+        "endpoint": "http://localhost:8000",
+        "region": "us-west-2"
+    },
+    "production":{
+        "endpoint": "",
+        "region": "ap-northeast-1",
+        "accessKeyId": "",
+        "secretAccessKey": ""
+    }
+}

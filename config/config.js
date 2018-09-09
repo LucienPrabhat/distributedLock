@@ -1,17 +1,24 @@
 let AWS=require('aws-sdk');
 
-let version={
-  region: "ap-northeast-1",
-}
-let devVersion={
-  region: "us-west-2",
-  endpoint: "http://localhost:8000"
+var fs = require('fs');
+var obj = JSON.parse(fs.readFileSync('./enviroment.json', 'utf8'));
+
+const enviroment= process.env.NODE_ENV || "production"
+
+const config = {
+  'dev': obj.dev,
+  'production': {
+      endpoint: obj.production.endpoint,
+      region: obj.production.region,
+      credentials: new AWS.Credentials({
+          accessKeyId: obj.production.accessKeyId,
+          secretAccessKey: obj.production.secretAccessKey
+      })
+  }
 }
 
-let configUpdate=devVersion;
-
-let dynamodb= new AWS.DynamoDB(configUpdate);
-let docClient= new AWS.DynamoDB.DocumentClient(configUpdate);
+let dynamodb= new AWS.DynamoDB(config[enviroment]);
+let docClient= new AWS.DynamoDB.DocumentClient(config[enviroment]);
 
 module.exports = {
     dynamodb,

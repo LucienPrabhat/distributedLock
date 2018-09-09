@@ -6,6 +6,7 @@
   "scripts": {
     "prestart": "npm install",
     "start": "node index.js",
+    "dev": "export NODE_ENV='dev' && node index.js",
     "test": "mocha"
   },
   "keywords": [
