@@ -15,7 +15,7 @@ describe('mutex CREATE (basic)',()=>{
 	it('mutexKeyC0 / create',(done)=>{
 		api.put('/mutex/mutexKeyC0')
 	    .set('Content-Type', 'application/json')
-	    .send('{"ttl":2}')
+	    .send('{"ttl":1}')
 	    .expect(200)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
@@ -60,21 +60,11 @@ describe('mutex CREATE (ttl forbidden)',()=>{
 
 	it('mutexKeyC1 / create (empty body)',(done)=>{
 		api.put('/mutex/mutexKeyC1')
-	    .expect(200)
+	    .expect(400)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
-	    	checkHandle=res['body']['message']['handle'];
 			done();
 	    })	
-	});
-
-	it('C1 delete',(done)=>{
-		api.delete('/mutex/mutexKeyC1/'+checkHandle)
-	    .expect(200)
-	    .end((err,res)=>{
-	    	if(err) return done(err);
-			done();
-	    })
 	});
 
 	it('mutexKeyC2 / ttl = 0 ',(done)=>{
@@ -101,7 +91,7 @@ describe('mutex CREATE (ttl forbidden)',()=>{
 
 	it('C1 not exist',(done)=>{
 		api.get('/mutex/mutexKeyC1')
-	    .expect(400)
+	    .expect(404)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 	    	done();	
@@ -110,7 +100,7 @@ describe('mutex CREATE (ttl forbidden)',()=>{
 
 	it('C2 not exist',(done)=>{
 		api.get('/mutex/mutexKeyC2')
-	    .expect(400)
+	    .expect(404)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 	    	done();	
@@ -119,7 +109,7 @@ describe('mutex CREATE (ttl forbidden)',()=>{
 
 	it('C3 not exist',(done)=>{
 		api.get('/mutex/mutexKeyC3')
-	    .expect(400)
+	    .expect(404)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 	    	done();	
@@ -135,6 +125,8 @@ describe('mutex DELETE',()=>{
 
 	it('mutexKeyD0/ create',(done)=>{
 		api.put('/mutex/mutexKeyD0')
+		.set('Content-Type', 'application/json')
+	    .send('{"ttl":60}')
 	    .expect(200)
 	    .end((err,res)=>{
 	    	if(err) return done(err);	    	
@@ -156,8 +148,10 @@ describe('mutex DELETE',()=>{
 	});
 
 	it('mutexKeyD0 delete with WRONG handle',(done)=>{
-		api.delete('/mutex/mutexKeyD0/abcdefg098765xyz')
-	    .expect(400)
+		api.delete('/mutex/mutexKeyD0')
+		.set('Content-Type', 'application/json')
+	    .send('{"handle":"abcdefg098765xyz"}')
+	    .expect(401)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 			done();
@@ -175,7 +169,9 @@ describe('mutex DELETE',()=>{
 	});
 
 	it('mutexKeyD0 delete with CORRECT handle',(done)=>{
-		api.delete('/mutex/mutexKeyD0/'+checkHandle)
+		api.delete('/mutex/mutexKeyD0')
+		.set('Content-Type', 'application/json')
+	    .send(`{"handle":"${checkHandle}"}`)
 	    .expect(200)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
@@ -185,7 +181,7 @@ describe('mutex DELETE',()=>{
 
 	it('query again, not exist',(done)=>{
 		api.get('/mutex/mutexKeyD0')
-	    .expect(400)
+	    .expect(404)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 	    	done();	
@@ -193,8 +189,10 @@ describe('mutex DELETE',()=>{
 	});
 
 	it('mutexKeyD0 not exist when delete',(done)=>{
-		api.delete('/mutex/mutexKeyD0/'+checkHandle)
-	    .expect(400)
+		api.delete('/mutex/mutexKeyD0')
+		.set('Content-Type', 'application/json')
+	    .send(`{"handle":"${checkHandle}"}`)
+	    .expect(401)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 			done();
@@ -211,6 +209,8 @@ describe('mutex UPDATE',()=>{
 
 	it('mutexKeyU0 / create',(done)=>{
 		api.put('/mutex/mutexKeyU0')
+		.set('Content-Type', 'application/json')
+	    .send('{"ttl":60}')
 	    .expect(200)
 	    .end((err,res)=>{
 	    	if(err) return done(err);	    	
@@ -232,8 +232,10 @@ describe('mutex UPDATE',()=>{
 	});
 
 	it('Update with WRONG handle',(done)=>{
-		api.patch('/mutex/mutexKeyU0/abcdefg0987xye34zz')
-	    .expect(400)
+		api.patch('/mutex/mutexKeyU0')
+		.set('Content-Type', 'application/json')
+	    .send('{"ttl":60,"handle":"abcdefg0987xye34zz"}')
+	    .expect(401)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 	    	done();	
@@ -252,20 +254,18 @@ describe('mutex UPDATE',()=>{
 	});
 
 	it('Update with empty body / delay 60sec',(done)=>{
-		api.patch('/mutex/mutexKeyU0/'+checkHandle)
-	    .expect(200)
+		api.patch('/mutex/mutexKeyU0')
+	    .expect(400)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
-	    	EXP+=60000;
-	    	assert.equal(res['body']['message']['expiry'],EXP);
 	    	done();	
 	    })
 	});
 
-	it('Update set ttl<0 / should error',(done)=>{
-		api.patch('/mutex/mutexKeyU0/'+checkHandle)
+	it('Update set one args / should error',(done)=>{
+		api.patch('/mutex/mutexKeyU0')
 		.set('Content-Type', 'application/json')
-		.send('{"ttl":"-3"}')
+	    .send(`{"handle":"${checkHandle}"}`)
 	    .expect(400)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
@@ -274,9 +274,9 @@ describe('mutex UPDATE',()=>{
 	});
 
 	it('Update set ttl=0 / should error',(done)=>{
-		api.patch('/mutex/mutexKeyU0/'+checkHandle)
+		api.patch('/mutex/mutexKeyU0')
 		.set('Content-Type', 'application/json')
-		.send('{"ttl":0}')
+	    .send(`{"ttl":0,"handle":"${checkHandle}"}`)
 	    .expect(400)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
@@ -285,9 +285,9 @@ describe('mutex UPDATE',()=>{
 	});
 
 	it('Update set ttl>=3600sec / should error',(done)=>{
-		api.patch('/mutex/mutexKeyU0/'+checkHandle)
+		api.patch('/mutex/mutexKeyU0')
 		.set('Content-Type', 'application/json')
-		.send('{"ttl":3601}')
+	    .send(`{"ttl":3601,"handle":"${checkHandle}"}`)
 	    .expect(400)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
@@ -296,9 +296,9 @@ describe('mutex UPDATE',()=>{
 	});
 
 	it('Update set ttl=30sec / delay 30sec',(done)=>{
-		api.patch('/mutex/mutexKeyU0/'+checkHandle)
+		api.patch('/mutex/mutexKeyU0')
 		.set('Content-Type', 'application/json')
-		.send('{"ttl":30}')
+	    .send(`{"ttl":30,"handle":"${checkHandle}"}`)
 	    .expect(200)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
@@ -309,8 +309,10 @@ describe('mutex UPDATE',()=>{
 	});
 
 	it('mutexKeyU0 Delete',(done)=>{
-		api.delete('/mutex/mutexKeyU0/'+checkHandle)
-	    .expect(200)
+		api.delete('/mutex/mutexKeyU0')
+		.set('Content-Type', 'application/json')
+		.send(`{"ttl":0,"handle":"${checkHandle}"}`)
+		.expect(200)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 			done();
@@ -319,7 +321,7 @@ describe('mutex UPDATE',()=>{
 
 	it('query again, not exist',(done)=>{
 		api.get('/mutex/mutexKeyU0')
-	    .expect(400)
+	    .expect(404)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 	    	done();	
@@ -327,8 +329,10 @@ describe('mutex UPDATE',()=>{
 	});
 
 	it('Update should error',(done)=>{
-		api.patch('/mutex/mutexKeyU0/'+checkHandle)
-	    .expect(400)
+		api.patch('/mutex/mutexKeyU0')
+		.set('Content-Type', 'application/json')
+		.send(`{"ttl":30,"handle":"${checkHandle}"}`)
+	    .expect(401)
 	    .end((err,res)=>{
 	    	if(err) return done(err);
 	    	done();	
@@ -336,34 +340,3 @@ describe('mutex UPDATE',()=>{
 	});
 
 });
-
-
-
-// Query
-// {
-//   "message": {
-//     "id": "muA",
-//     "expiry": 1533110678373
-//   }
-// }
-
-// lock
-// {
-//   "message": {
-//     "id": "muA",
-//     "handle": "ca1e020a-079e-4a56-b0cc-44c490d6f86c",
-//     "expiry": 1534501106693,
-//     "locked": true
-//   }
-// }
-// 200 / 409
-
-// update
-// {
-//   "message": {
-//     "expiry": 1534501286693
-//   }
-// }
-// 200 / 400
-
-// delete 400/200

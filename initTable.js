@@ -48,6 +48,8 @@ function ResetInitTable(){
     })
 };
 
+if(process.env.NODE_ENV=="dev") ResetInitTable()
+
 //create Table for INITIAL
 console.log('# initial tables ...')
 createTable('mutexLock');

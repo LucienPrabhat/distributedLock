@@ -1,7 +1,7 @@
 let AWS=require('aws-sdk');
 
 var fs = require('fs');
-var obj = JSON.parse(fs.readFileSync('./enviroment.json', 'utf8'));
+var obj = JSON.parse(fs.readFileSync('./config/enviroment.json', 'utf8'));
 
 const enviroment= process.env.NODE_ENV || "production"
 
