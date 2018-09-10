@@ -30,7 +30,7 @@ function createTable(table_Name){
 function deleTable(table_Name){
     let params = { TableName : table_Name };
     return aws.dynamodb.deleteTable(params).promise()
-            .then(data => console.log("#Table Deleted:",tableNtable_Nameame) )
+            .then(data => console.log("#Table Deleted:",table_Name) )
             .catch(err => {
             if(err['statusCode']==400 && err['code']=='ResourceNotFoundException'){
                 return console.log('#200,table NOT exist,skip...');
@@ -40,6 +40,7 @@ function deleTable(table_Name){
 }
 
 function ResetInitTable(){
+    console.log('# Resting tables(dev mode) ...')
     deleTable('mutexLock')
     .then(()=>{ return deleTable('semaphoreLock') })
     .then(()=>{
@@ -48,12 +49,14 @@ function ResetInitTable(){
     })
 };
 
-if(process.env.NODE_ENV=="dev") ResetInitTable()
-
 //create Table for INITIAL
 console.log('# initial tables ...')
-createTable('mutexLock');
-createTable('semaphoreLock');
+if(process.env.NODE_ENV=="dev") ResetInitTable()
+else{
+    createTable('mutexLock');
+    createTable('semaphoreLock');
+}
+
 
 module.exports = {
     ResetInitTable
