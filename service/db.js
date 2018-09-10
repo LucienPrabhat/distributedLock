@@ -119,8 +119,8 @@ function sitOrLeave(idVal,countOper,handle,expiry){
 
     let option={};
     option.ConditionExpression={
-        "-1":"#ke=:k AND #st>#sv AND #sv>=:z AND NOT #s.#hd=:z",
-        "1":"#ke=:k AND #st>=#sv AND #sv>:z AND attribute_not_exists(#s.#hd)",
+        "-1":"#ke=:k AND #st>#sv AND #sv>=:z AND #s.#hd>:z",
+        "1":"#ke=:k AND #st>=#sv AND #sv>:z AND NOT #s.#hd>:z",
     }
     option.UpdateExpression={
         "-1":"set #sv= #sv+:c ,#s.#hd= :e",
@@ -229,7 +229,7 @@ function heartBeat(tableName,idVal,handle,ttl){
         TableName: tableName,
         Key: { 'id': idVal },
         UpdateExpression: "set #st.#hd = #st.#hd+:d",
-        ConditionExpression: "#ke=:k AND attribute_exists(#st.#hd)",
+        ConditionExpression: "#ke=:k AND #st.#hd>:z",
         ExpressionAttributeNames:{
             "#ke":'id',
             "#hd":handle,
@@ -238,6 +238,7 @@ function heartBeat(tableName,idVal,handle,ttl){
         ExpressionAttributeValues:{
             ":k":idVal,
             ":d":ttl*1000,
+            ":z":0,
         },
         ReturnValues:"UPDATED_NEW"
     };
