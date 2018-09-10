@@ -119,8 +119,9 @@ describe('Semaphore DELETE',()=>{
 	    .expect(200)
 	    .end((err,res)=>{
 			if(err) return done(err);
-			let checkHandle=Object.keys(res['body']['message']['seat'])[0];
-			let EXP = res['body']['message']['seat'][checkHandle]
+			let keyArr=Object.keys(res['body']['message']['seat']);
+			checkHandle=(keyArr[0]=='DefaultHandle') ? keyArr[1] : keyArr[0]
+			EXP = res['body']['message']['seat'][checkHandle]
 			done();
 	    })	
 	});
@@ -237,8 +238,9 @@ describe('Semaphore UPDATE',()=>{
 	    .expect(200)
 	    .end((err,res)=>{
 			if(err) return done(err);
-			checkHandle= Object.keys(res['body']['message']['seat'])[0];
-			EXP= res['body']['message']['seat'][checkHandle];
+			let keyArr=Object.keys(res['body']['message']['seat']);
+			checkHandle=(keyArr[0]=='DefaultHandle') ? keyArr[1] : keyArr[0]
+			EXP = res['body']['message']['seat'][checkHandle]
 			done();
 	    })	
 	});
@@ -375,14 +377,15 @@ describe('Semaphore LOCK and RELEASE',()=>{
 	});
 
 	it('lock +1',(done)=>{
-		api.put('/semaphore/semaKeyU0/Seat')
+		api.put('/semaphore/semaKeyL0/Seat')
 		.set('Content-Type', 'application/json')
 	    .send('{"ttl":1}')
 	    .expect(200)
 	    .end((err,res)=>{
 			if(err) return done(err);
-			checkHandle= Object.keys(res['body']['message']['seat'])[0];
-			EXP= res['body']['message']['seat'][checkHandle];
+			let keyArr=Object.keys(res['body']['message']['seat']);
+			checkHandle=(keyArr[0]=='DefaultHandle') ? keyArr[1] : keyArr[0]
+			EXP = res['body']['message']['seat'][checkHandle]
 			done();
 	    })	
 	});
@@ -400,18 +403,21 @@ describe('Semaphore LOCK and RELEASE',()=>{
 	});
 
 	it('lock +1 when expiry,success and replace',(done)=>{
-		api.put('/semaphore/semaKeyU0/Seat')
-		.set('Content-Type', 'application/json')
-	    .send('{"ttl":600}')
-	    .expect(200)
-	    .end((err,res)=>{
-			if(err) return done(err);
-			let newCheckHandle= Object.keys(res['body']['message']['seat'])[0];
-			assert.notEqual(newCheckHandle,checkHandle);
-			checkHandle= newCheckHandle;
-			EXP= res['body']['message']['seat'][checkHandle];
-			done();
-	    })	
+		setTimeout(()=>{
+			api.put('/semaphore/semaKeyL0/Seat')
+			.set('Content-Type', 'application/json')
+			.send('{"ttl":600}')
+			.expect(200)
+			.end((err,res)=>{
+				if(err) return done(err);
+				let keyArr=Object.keys(res['body']['message']['seat']);
+				let newCheckHandle=(keyArr[0]=='DefaultHandle') ? keyArr[1] : keyArr[0]
+				assert.notEqual(newCheckHandle,checkHandle);
+				checkHandle= newCheckHandle;
+				EXP= res['body']['message']['seat'][checkHandle];
+				done();
+			})
+		},1500);
 	});
 
 	it('query, vaild should equal 0',(done)=>{
@@ -427,7 +433,7 @@ describe('Semaphore LOCK and RELEASE',()=>{
 	});
 
 	it('lock +1 when not expiry,faild',(done)=>{
-		api.put('/semaphore/semaKeyU0/Seat')
+		api.put('/semaphore/semaKeyL0/Seat')
 		.set('Content-Type', 'application/json')
 	    .send('{"ttl":60}')
 	    .expect(409)
@@ -444,15 +450,17 @@ describe('Semaphore LOCK and RELEASE',()=>{
 			if(err) return done(err);
 			assert.equal(res['body']['message']['id'],'semaKeyL0');
 	    	assert.equal(res['body']['message']['seatTotal'],1);
-	    	assert.equal(res['body']['message']['seatVaild'],0);
-	    	assert.equal(Object.keys(res['body']['message']['seat'])[0],checkHandle);
+			assert.equal(res['body']['message']['seatVaild'],0);
+			let keyArr=Object.keys(res['body']['message']['seat']);
+			let checkHandle2=(keyArr[0]=='DefaultHandle') ? keyArr[1] : keyArr[0]
+	    	assert.equal(checkHandle2,checkHandle);
 	    	assert.equal(res['body']['message']['seat'][checkHandle],EXP);
 	    	done();	
 	    })
 	});
 
 	it('lock -1',(done)=>{
-		api.delete('/semaphore/semaKeyU0/Seat')
+		api.delete('/semaphore/semaKeyL0/Seat')
 		.set('Content-Type', 'application/json')
 	    .send(`{"handle":"${checkHandle}"}`)
 	    .expect(200)
@@ -476,7 +484,7 @@ describe('Semaphore LOCK and RELEASE',()=>{
 	});
 
 	it('lock -1,when Vaild is full',(done)=>{
-		api.delete('/semaphore/semaKeyU0/Seat')
+		api.delete('/semaphore/semaKeyL0/Seat')
 		.set('Content-Type', 'application/json')
 	    .send(`{"handle":"${checkHandle}"}`)
 	    .expect(401)
